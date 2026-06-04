@@ -8,11 +8,11 @@ export const metadata: Metadata = {
 };
 
 const rows: { label: string; value: string | React.ReactNode }[] = [
-  { label: "販売業者", value: "Jimi Takaishi（高石 ジミ）" },
+  { label: "販売業者", value: "Jimi Takaishi" },
   { label: "所在地", value: "請求があれば遅滞なく開示します" },
   { label: "電話番号", value: "請求があれば遅滞なく開示します" },
   { label: "メールアドレス", value: "jimiaki7@gmail.com" },
-  { label: "サービス名", value: "Keryx（説教管理・準備支援アプリ）" },
+  { label: "サービス名", value: "Keryx Pro" },
   { label: "販売価格", value: "Pro プラン：¥800 / 月（税込）" },
   { label: "支払方法", value: "クレジットカード（Stripe 経由）" },
   { label: "支払時期", value: "申込み完了時にお支払いが確定します" },
