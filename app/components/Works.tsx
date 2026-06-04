@@ -1,5 +1,18 @@
 const projects = [
   {
+    name: "Keryx",
+    nameJa: "ケリュクス",
+    description:
+      "Sermon preparation and management app for pastors. AI-powered outline generation, series tracking, calendar scheduling, and cloud sync.",
+    descriptionJa:
+      "牧師のための説教準備・管理アプリ。AIによるアウトライン自動生成、シリーズ管理、カレンダー、クラウド同期に対応。",
+    tech: ["React", "Vite", "Supabase", "Tailwind CSS"],
+    github: "https://github.com/jimiaki7/keryx",
+    demo: "https://keryx-ten.vercel.app/",
+    status: "In Production",
+    statusColor: "var(--accent-green)",
+  },
+  {
     name: "Oikonomia",
     nameJa: "オイコノミア",
     description:
