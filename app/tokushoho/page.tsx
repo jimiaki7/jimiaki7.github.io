@@ -13,7 +13,7 @@ const rows: { label: string; value: string | React.ReactNode }[] = [
   { label: "電話番号", value: "請求があれば遅滞なく開示します" },
   { label: "メールアドレス", value: "jimiaki7@gmail.com" },
   { label: "サービス名", value: "Keryx Pro" },
-  { label: "販売価格", value: "Pro プラン：¥800 / 月（税込）" },
+  { label: "販売価格", value: "Pro プラン：¥300 / 月（税込）" },
   { label: "支払方法", value: "クレジットカード（Stripe 経由）" },
   { label: "支払時期", value: "申込み完了時にお支払いが確定します" },
   { label: "サービス提供時期", value: "決済完了後、直ちにご利用いただけます" },
