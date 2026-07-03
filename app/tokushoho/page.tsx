@@ -1,19 +1,23 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "特定商取引法に基づく表記 | Jimi Takaishi",
-  description: "特定商取引法に基づく表記",
+  title: "特定商取引法に基づく表記 | Aster Works",
+  description: "Aster Worksの特定商取引法に基づく表記",
 };
 
-const rows: { label: string; value: string | React.ReactNode }[] = [
+const rows: { label: string; value: string | ReactNode }[] = [
   { label: "販売業者", value: "Jimi Takaishi" },
   { label: "所在地", value: "請求があれば遅滞なく開示します" },
   { label: "電話番号", value: "請求があれば遅滞なく開示します" },
-  { label: "メールアドレス", value: "jimiaki7@gmail.com" },
-  { label: "サービス名", value: "Keryx Pro" },
-  { label: "販売価格", value: "Pro プラン：¥300 / 月（税込）" },
+  { label: "メールアドレス", value: "asterworks3322@gmail.com" },
+  { label: "サービス名", value: "Aster Works / Aster Works products" },
+  {
+    label: "販売価格",
+    value: "各商品・サービスページまたは申込画面に表示します（無料ツールを除く）",
+  },
   { label: "支払方法", value: "クレジットカード（Stripe 経由）" },
   { label: "支払時期", value: "申込み完了時にお支払いが確定します" },
   { label: "サービス提供時期", value: "決済完了後、直ちにご利用いただけます" },
@@ -39,7 +43,7 @@ export default function TokushohoPage() {
         <div className="w-12 h-0.5 mb-10 rounded" style={{ background: "var(--accent)" }} />
 
         <div
-          className="rounded-xl overflow-hidden"
+          className="rounded-lg overflow-hidden"
           style={{ border: "1px solid var(--border)" }}
         >
           {rows.map((row, i) => (
@@ -69,11 +73,11 @@ export default function TokushohoPage() {
         <p className="text-xs mt-8" style={{ color: "var(--text-secondary)" }}>
           ※ 所在地・電話番号の開示請求は{" "}
           <a
-            href="mailto:jimiaki7@gmail.com"
+            href="mailto:asterworks3322@gmail.com"
             className="underline"
             style={{ color: "var(--accent)" }}
           >
-            jimiaki7@gmail.com
+            asterworks3322@gmail.com
           </a>{" "}
           までメールにてお送りください。遅滞なく開示いたします。
         </p>

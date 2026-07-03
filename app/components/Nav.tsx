@@ -2,16 +2,16 @@
 
 export default function Nav() {
   const links = [
-    { href: "#about", label: "About", ja: "自己紹介" },
-    { href: "#skills", label: "Skills", ja: "スキル" },
-    { href: "#works", label: "Works", ja: "実績" },
-    { href: "#contact", label: "Contact", ja: "お問い合わせ" },
+    { href: "#about", label: "About" },
+    { href: "#skills", label: "Capabilities" },
+    { href: "#works", label: "Products" },
+    { href: "#contact", label: "Contact" },
   ];
 
   return (
     <nav
       style={{
-        background: "rgba(13, 17, 23, 0.85)",
+        background: "rgba(250, 250, 248, 0.9)",
         borderBottom: "1px solid var(--border)",
         backdropFilter: "blur(12px)",
       }}
@@ -22,17 +22,18 @@ export default function Nav() {
           style={{ color: "var(--accent)", fontFamily: "var(--font-geist-mono)" }}
           className="text-sm font-semibold"
         >
-          JT.dev
+          Aster Works
         </span>
-        <div className="flex items-center gap-6">
-          {links.map((l) => (
-            <a key={l.href} href={l.href} className="nav-link">
-              <span className="hidden sm:inline">{l.label}</span>
-              <span className="sm:hidden text-xs">{l.ja}</span>
-            </a>
-          ))}
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-6">
+            {links.map((l) => (
+              <a key={l.href} href={l.href} className="nav-link">
+                {l.label}
+              </a>
+            ))}
+          </div>
           <a href="#contact" className="btn-primary text-sm py-1.5 px-4">
-            Hire Me
+            相談する
           </a>
         </div>
       </div>

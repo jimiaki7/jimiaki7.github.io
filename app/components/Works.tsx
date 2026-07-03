@@ -1,43 +1,133 @@
-const projects = [
+import {
+  ArrowRightIcon,
+  ExternalLinkIcon,
+  GitBranchIcon,
+  PackageIcon,
+} from "./Icons";
+
+type ProductLink = {
+  label: string;
+  href: string;
+  icon: "external" | "github" | "package" | "contact";
+};
+
+type Product = {
+  name: string;
+  nameJa: string;
+  category: string;
+  description: string;
+  descriptionJa: string;
+  tech: string[];
+  status: string;
+  statusJa: string;
+  statusColor: string;
+  links: ProductLink[];
+};
+
+const products: Product[] = [
+  {
+    name: "Aster Support Navi",
+    nameJa: "生活支援制度ナビ",
+    category: "Life",
+    description:
+      "A support-program navigator that helps people find public assistance programs by address and life situation, then organize the next steps.",
+    descriptionJa:
+      "住所と生活状況から、確認すべき支援制度と次にやることを整理する生活支援ナビ。東京23区の出産・子育て支援から公開中。",
+    tech: ["Next.js", "Supabase", "Vercel", "GA4"],
+    status: "Live",
+    statusJa: "公開中",
+    statusColor: "var(--accent-green)",
+    links: [{ label: "Site", href: "https://astersupport.com/", icon: "external" }],
+  },
+  {
+    name: "Aster Tools",
+    nameJa: "無料ツール集",
+    category: "Life / Work",
+    description:
+      "A multilingual toolkit for small chores in work and daily life, from calculators and unit conversion to writing helpers.",
+    descriptionJa:
+      "年齢・ローン・税金の計算から単位変換、文章づくりまで、暮らしと仕事の小さな手間を解く無料ツール集。",
+    tech: ["Astro", "TypeScript", "SEO", "i18n"],
+    status: "Live",
+    statusJa: "公開中",
+    statusColor: "var(--accent-green)",
+    links: [{ label: "Site", href: "https://astertools.app/", icon: "external" }],
+  },
+  {
+    name: "Aster Guard",
+    nameJa: "MCPセキュリティ診断",
+    category: "Developer",
+    description:
+      "A lightweight security scanner that checks MCP servers and .mcp.json before connecting them, built for Claude Code users and indie AI developers.",
+    descriptionJa:
+      "MCPサーバーや .mcp.json をつなぐ前に点検する、Claude Codeユーザーと個人AI開発者向けの軽量セキュリティ診断ツール。",
+    tech: ["Node.js", "MCP", "CLI", "GitHub Actions"],
+    status: "Live",
+    statusJa: "公開中",
+    statusColor: "var(--accent-green)",
+    links: [
+      {
+        label: "npm",
+        href: "https://www.npmjs.com/package/@asterworks/aster-guard",
+        icon: "package",
+      },
+      {
+        label: "GitHub",
+        href: "https://github.com/Aster-Works/aster-guard",
+        icon: "github",
+      },
+    ],
+  },
+  {
+    name: "Aster Business Navi",
+    nameJa: "中小企業向けWeb診断ナビ",
+    category: "Work",
+    description:
+      "A URL-based business diagnostic navigator that turns overlooked web, hiring, and trust signals into concrete next checks.",
+    descriptionJa:
+      "会社サイトのURLから、Web・採用・信頼性の見落としと次に確認すべき改善点を整理する中小企業向け診断ナビ。",
+    tech: ["Next.js", "Crawler", "AI Reports", "Supabase"],
+    status: "MVP",
+    statusJa: "準備中",
+    statusColor: "var(--accent)",
+    links: [{ label: "相談する", href: "#contact", icon: "contact" }],
+  },
+  {
+    name: "Aster Signal",
+    nameJa: "営業タイミング検知",
+    category: "B2B",
+    description:
+      "A sales-signal concept that detects signs of restaurant openings, relocations, and closures from public sources with evidence URLs.",
+    descriptionJa:
+      "公開情報から店舗の開業・移転・閉業の兆しを検知し、営業すべき相手・タイミング・提案メモを整理するB2Bサービス構想。",
+    tech: ["Open Data", "Scoring", "Research", "Human Review"],
+    status: "Planning",
+    statusJa: "構想中",
+    statusColor: "var(--accent)",
+    links: [{ label: "相談する", href: "#contact", icon: "contact" }],
+  },
   {
     name: "Keryx",
-    nameJa: "ケリュクス",
+    nameJa: "牧師向けワークスペース",
+    category: "Ministry",
     description:
-      "Sermon preparation and management app for pastors. AI-powered outline generation, series tracking, calendar scheduling, and cloud sync.",
+      "A Japanese-first workspace concept for pastors that brings sermon planning, service preparation, and reflection together in one place.",
     descriptionJa:
-      "牧師のための説教準備・管理アプリ。AIによるアウトライン自動生成、シリーズ管理、カレンダー、クラウド同期に対応。",
-    tech: ["React", "Vite", "Supabase", "Tailwind CSS"],
-    github: "https://github.com/jimiaki7/keryx",
-    demo: "https://keryx-ten.vercel.app/",
-    status: "In Production",
-    statusColor: "var(--accent-green)",
-  },
-  {
-    name: "Oikonomia",
-    nameJa: "オイコノミア",
-    description:
-      "Church attendance and lunch management system. Real-time tracking of worship attendance and meal registration for congregations.",
-    descriptionJa:
-      "教会の礼拝出席・昼食管理システム。リアルタイムで出席者と食事の登録を管理。",
-    tech: ["Next.js", "Supabase", "TypeScript", "Tailwind CSS"],
-    github: "https://github.com/jimiaki7",
-    status: "In Production",
-    statusColor: "var(--accent-green)",
-  },
-  {
-    name: "Gegraptai",
-    nameJa: "ゲグラプタイ",
-    description:
-      "Biblical exegesis tool for studying Hebrew and Greek original texts. Tap any word to view parsing info and record personal notes, with cloud sync via Supabase.",
-    descriptionJa:
-      "ヘブライ語・ギリシャ語の聖書原典を読み、単語タップで語形解析・注解を記録できる聖書研究ツール。Supabaseによるクラウド同期に対応。",
-    tech: ["TypeScript", "Supabase", "PWA"],
-    github: "https://github.com/jimiaki7/gegraptai",
-    demo: "https://gegraptai.netlify.app/",
-    status: "In Production",
-    statusColor: "var(--accent-green)",
+      "説教の計画から礼拝準備、振り返りまでをひとつにまとめる、日本語ファーストの牧師向けワークスペース。",
+    tech: ["Next.js", "Supabase", "AI", "Japanese UX"],
+    status: "Prototype",
+    statusJa: "検証中",
+    statusColor: "var(--accent)",
+    links: [{ label: "相談する", href: "#contact", icon: "contact" }],
   },
 ];
+
+function LinkIcon({ icon }: { icon: ProductLink["icon"] }) {
+  if (icon === "github") return <GitBranchIcon size={16} />;
+  if (icon === "package") return <PackageIcon size={16} />;
+  if (icon === "contact") return <ArrowRightIcon size={16} />;
+  return <ExternalLinkIcon size={16} />;
+}
 
 export default function Works() {
   return (
@@ -47,17 +137,23 @@ export default function Works() {
       style={{ background: "var(--bg-primary)" }}
     >
       <div className="max-w-5xl mx-auto px-6">
-        <h2 className="section-title">Works</h2>
+        <h2 className="section-title">Products</h2>
         <p className="text-sm mb-2" style={{ color: "var(--text-secondary)" }}>
-          制作物・実績
+          Aster Works の公開中・準備中プロダクト
         </p>
         <div className="accent-line" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {projects.map((p) => (
-            <div key={p.name} className="card p-6 flex flex-col">
-              <div className="flex items-start justify-between mb-4">
+          {products.map((p) => (
+            <article key={p.name} className="card p-6 flex flex-col">
+              <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
+                  <p
+                    className="text-xs font-semibold uppercase tracking-wider mb-2"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    {p.category}
+                  </p>
                   <h3
                     className="text-lg font-semibold"
                     style={{ color: "var(--text-primary)" }}
@@ -72,7 +168,7 @@ export default function Works() {
                   </p>
                 </div>
                 <span
-                  className="text-xs px-2.5 py-1 rounded-full font-medium"
+                  className="text-xs px-2.5 py-1 rounded-full font-medium shrink-0"
                   style={{
                     color: p.statusColor,
                     border: `1px solid ${p.statusColor}`,
@@ -80,6 +176,7 @@ export default function Works() {
                   }}
                 >
                   {p.status}
+                  <span className="hidden sm:inline"> / {p.statusJa}</span>
                 </span>
               </div>
 
@@ -91,7 +188,7 @@ export default function Works() {
               </p>
               <p
                 className="text-xs leading-relaxed mb-6"
-                style={{ color: "var(--text-secondary)", opacity: 0.7 }}
+                style={{ color: "var(--text-secondary)", opacity: 0.78 }}
               >
                 {p.descriptionJa}
               </p>
@@ -104,55 +201,21 @@ export default function Works() {
                 ))}
               </div>
 
-              <div className="mt-auto flex gap-3">
-                {p.github ? (
+              <div className="mt-auto flex flex-wrap gap-3">
+                {p.links.map((link) => (
                   <a
-                    href={p.github}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    key={`${p.name}-${link.label}`}
+                    href={link.href}
+                    target={link.href.startsWith("http") ? "_blank" : undefined}
+                    rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
                     className="btn-secondary text-sm py-1.5 px-4"
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
-                    </svg>
-                    GitHub
+                    <LinkIcon icon={link.icon} />
+                    {link.label}
                   </a>
-                ) : (
-                  <a href="#contact" className="btn-secondary text-sm py-1.5 px-4">
-                    お問い合わせ
-                  </a>
-                )}
-                {"demo" in p && p.demo && (
-                  <a
-                    href={p.demo}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary text-sm py-1.5 px-4"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                    Demo
-                  </a>
-                )}
+                ))}
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </div>

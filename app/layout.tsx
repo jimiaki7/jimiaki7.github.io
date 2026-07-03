@@ -13,9 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jimi Takaishi | Full-Stack Developer",
+  title: "Aster Works | Jimi Takaishi",
   description:
-    "Jimi Takaishi — Full-Stack Developer specializing in Next.js, Supabase, and TypeScript. Available for freelance projects.",
+    "Aster Works is Jimi Takaishi's product studio for practical web tools built with Next.js, Supabase, TypeScript, and AI.",
+  openGraph: {
+    title: "Aster Works | Jimi Takaishi",
+    description:
+      "Practical digital tools for work, learning, and daily life. Built by Jimi Takaishi.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

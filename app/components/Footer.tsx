@@ -10,10 +10,19 @@ export default function Footer() {
       }}
     >
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-        © {new Date().getFullYear()} Jimi Takaishi. Built with Next.js &
-        Tailwind CSS.
+        © {new Date().getFullYear()} Aster Works / Jimi Takaishi. Built with
+        Next.js & Tailwind CSS.
       </p>
-      <p className="text-xs">
+      <p className="text-xs flex flex-wrap justify-center gap-4">
+        <a
+          href="https://www.asterworks.org/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:opacity-80 transition-opacity"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Aster Works
+        </a>
         <Link
           href="/tokushoho"
           className="underline hover:opacity-80 transition-opacity"
