@@ -59,6 +59,21 @@ Notion の DB 機能（→ Obsidian Bases ネイティブ機能で実現）と M
 - 秘密の保管場所: 個人アクセストークン=keychain「Supabase CLI personal」／DBパスワード=keychain「Supabase jimi-os DB」。チャットに出したトークンは不要になったらダッシュボードで失効可。
 - 初回ログイン: jimiaki7@gmail.com でMagic Link送信→メールのリンククリック（初回ログインでユーザーが自動作成される）。
 
+## v0.2 機能化イテレーション（2026-07-08 完了・本番反映済み）
+
+Jimiフィードバック「パスワードを設定させたい」「中身が機能的でない」への対応。設計=Fable（契約は設計書v0.2節）、実装=Sonnet 3タスク（データ層10関数／設定画面アカウントカード／OsApp機能化 +1,128行）。
+
+- 追加機能: 設定画面でのパスワード自己設定／今日のフォーカス（next_action完了ボタン）／初期データ投入（空DB時、プロジェクト6・ツール8・インサイト2）／承認キュー（承認・却下）／ProjectHubインライン編集／ツール追加+ヘルスチェック／インサイト追加+承認・却下・完了／手動メモリー+削除／**Vaultから同期**（Bridge経由でmemory_itemsへ取込）／Supabase未接続時は読み取り専用ガード。
+- **E2E実運転検証済み**（使い捨てテストユーザー、検証後削除・cascade確認）: パスワードログイン→初期データ投入（0→6）→next_action編集がSQLで永続確認→インサイトapproved→ツールconnected+last_checked_at→**Vault同期50件・機微パス混入0件**→パスワード変更→サインアウト→新パスワード再ログイン成功。
+- 本番: commit 412c583 + 6c84dc7 デプロイ成功、本番バンドルにv0.2 UI反映確認済み。supabase/.temp はgitignoreへ（秘密は含まれていなかった）。
+- Jimiのアカウント（jimiaki7@gmail.com）は auth.users に作成済み（Magic Linkログイン実績あり）。**パスワード設定は /os/settings の「アカウント」カードから**。
+
+## .base導入・MulmoClaude初回起動（2026-07-08 Jimi承認済み・完了）
+
+- **.base 4本を Vault `00_Home/DB/` へ導入**（新規ファイルのみ、既存ノート無変更、diffで内容一致確認）。Obsidianで 00_Home/DB の各.baseを開くとNotion風テーブルが表示される。
+- **MulmoClaude 初回起動成功**: `bash studio/start.sh` → 「✓ MulmoClaude is ready → http://localhost:3001」、HTTP 200、skills 16件ロード。GEMINI_API_KEY未設定のため画像生成のみ未有効（警告表示済み）。再起動はいつでも `bash studio/start.sh`。
+- /os の Studio・Vault DBビューをGitHub Pages版から使う日は、ローカルで `npm run bridge:os`（Bridge）を起動しておく（MulmoClaudeヘルスはBridge経由 /mulmo/health）。
+
 ## 未完了・残課題（すべてJimiの承認・判断待ち）
 - Supabase プロジェクト作成/migration 適用（要承認）
 - .base の Vault 導入（要承認、推奨先 `00_Home/DB/`）
