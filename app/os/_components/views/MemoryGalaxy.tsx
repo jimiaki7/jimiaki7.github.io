@@ -208,7 +208,6 @@ export function MemoryGalaxy({
         </div>
       </form>
 
-      {!canWrite && <Notice variant="readonly">Supabase未接続のため読み取り専用です。</Notice>}
       {addMemory.error && <ErrorText>{addMemory.error}</ErrorText>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

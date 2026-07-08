@@ -28,9 +28,24 @@ function getServerTheme(): Theme {
   return "system";
 }
 
+// 同一タブは writeTheme が listeners を叩く。別タブでの変更は "storage" が拾う。
+function onStorage(event: StorageEvent) {
+  if (event.key === null || event.key === STORAGE_KEY) {
+    listeners.forEach((listener) => listener());
+  }
+}
+
 function subscribe(callback: () => void) {
+  if (listeners.size === 0) {
+    window.addEventListener("storage", onStorage);
+  }
   listeners.add(callback);
-  return () => listeners.delete(callback);
+  return () => {
+    listeners.delete(callback);
+    if (listeners.size === 0) {
+      window.removeEventListener("storage", onStorage);
+    }
+  };
 }
 
 function writeTheme(theme: Theme) {

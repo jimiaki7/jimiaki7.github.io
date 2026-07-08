@@ -20,7 +20,6 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
   DEFAULT_BRIDGE_URL,
   hasSupabaseConfig,
-  isLocalPreviewHost,
   OWNER_EMAIL,
   SUPABASE_URL,
 } from "../_lib/config";
@@ -35,13 +34,7 @@ import { getSupabaseBrowserClient } from "../_lib/supabase";
 import { Field } from "./ui/Field";
 import { Notice } from "./ui/Notice";
 
-type AuthState =
-  | "checking"
-  | "setup"
-  | "localPreview"
-  | "signedOut"
-  | "unauthorized"
-  | "ready";
+type AuthState = "checking" | "setup" | "signedOut" | "unauthorized" | "ready";
 
 const ownerEmail = OWNER_EMAIL.toLowerCase();
 
@@ -60,7 +53,7 @@ export default function OsSettingsApp() {
   useEffect(() => {
     if (!hasSupabaseConfig()) {
       void Promise.resolve().then(() => {
-        setAuthState(isLocalPreviewHost() ? "localPreview" : "setup");
+        setAuthState("setup");
       });
       return;
     }
@@ -151,12 +144,10 @@ export default function OsSettingsApp() {
           <StatusCard
             icon={ShieldCheck}
             title="Owner Gate"
-            ok={authState === "ready" || authState === "localPreview"}
+            ok={authState === "ready"}
             body={
               authState === "ready"
                 ? user?.email ?? OWNER_EMAIL
-                : authState === "localPreview"
-                ? "Local Preview on localhost"
                 : `Owner: ${OWNER_EMAIL}`
             }
           />
@@ -217,7 +208,7 @@ export default function OsSettingsApp() {
           </Panel>
         )}
 
-        {(authState === "ready" || authState === "localPreview") && (
+        {authState === "ready" && (
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_0.8fr] gap-6">
             <section
               className="rounded-xl p-6"

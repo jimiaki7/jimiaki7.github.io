@@ -26,6 +26,7 @@ import { LoginState } from "./auth/LoginState";
 import { SetupState } from "./auth/SetupState";
 import { UnauthorizedState } from "./auth/UnauthorizedState";
 import { ConnectionPill } from "./ui/ConnectionPill";
+import { Notice } from "./ui/Notice";
 import { ThemeToggle } from "./ui/ThemeToggle";
 import { AgentRuns } from "./views/AgentRuns";
 import { DreamInbox } from "./views/DreamInbox";
@@ -61,7 +62,12 @@ const onElevated = {
 // 各ビューの中身は views/、認証画面は auth/、共通部品は ui/ にある。
 export default function OsApp() {
   const { phase, client, user, email, signOut } = useOsSession();
-  const { settings: bridgeSettings, health: bridgeHealth, recheck } = useBridge();
+  const {
+    settings: bridgeSettings,
+    health: bridgeHealth,
+    mulmo: mulmoHealth,
+    recheck,
+  } = useBridge();
   const { data, loading, refresh } = useOsData(client, phase === "ready");
   const [activeView, setActiveView] = useState<ViewId>("mission");
 
@@ -235,8 +241,23 @@ export default function OsApp() {
           </div>
         </header>
 
-        <main className="px-5 sm:px-8 py-8 max-w-7xl mx-auto">
-          {/* data.diagnostics の警告バナーは MissionControl が描画する */}
+        <main className="px-5 sm:px-8 py-8 max-w-7xl mx-auto space-y-8">
+          {/* 旧実装と同じく <main> 直下＝全ビュー共通で出す。1テーブルだけ失敗しても
+              シードへ落ちなくなったので、失敗を隠さないためにここが唯一の告知場所。 */}
+          {!canWrite && (
+            <Notice variant="readonly">Supabase未接続のため読み取り専用です。</Notice>
+          )}
+          {data.diagnostics.length > 0 && (
+            <Notice variant="warning">
+              一部のデータを読み込めませんでした（{data.diagnostics.length}件）。表示されている件数は実際より少ない可能性があります。
+              <ul className="mt-1 list-disc list-inside">
+                {data.diagnostics.map((message, index) => (
+                  <li key={index}>{message}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
+
           {activeView === "mission" && (
             <MissionControl
               data={data}
@@ -281,7 +302,11 @@ export default function OsApp() {
             <VaultDb bridgeSettings={bridgeSettings} bridgeHealth={bridgeHealth} />
           )}
           {activeView === "studio" && (
-            <Studio bridgeSettings={bridgeSettings} bridgeHealth={bridgeHealth} />
+            <Studio
+              bridgeHealth={bridgeHealth}
+              mulmoHealth={mulmoHealth}
+              onRecheck={recheck}
+            />
           )}
           {activeView === "dream" && (
             <DreamInbox

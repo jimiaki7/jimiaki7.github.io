@@ -1,48 +1,31 @@
 "use client";
 
 import { Clapperboard, ExternalLink, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { checkMulmoHealth, type BridgeHealth, type BridgeSettings, type MulmoHealth } from "../../_lib/bridge";
+import type { BridgeHealth, MulmoHealth } from "../../_lib/bridge";
 import { useAsyncAction } from "../../_hooks/useAsyncAction";
 import { BridgeOfflineNotice } from "../ui/BridgeOfflineNotice";
 import { ConnectionPill } from "../ui/ConnectionPill";
 import { SectionHeader } from "../ui/SectionHeader";
 
+const NOT_CHECKED: MulmoHealth = {
+  ok: false,
+  error: "MulmoClaude has not been checked yet.",
+};
+
+// MulmoClaude のヘルスは useBridge が一元取得する。ここで自前に useEffect + fetch を
+// 持つと、useAsyncAction の戻り値を依存配列に入れた瞬間に無限ループになる
+// （実際に /mulmo/health を連射した）。表示は props、再取得はイベントハンドラのみ。
 export function Studio({
-  bridgeSettings,
   bridgeHealth,
+  mulmoHealth,
+  onRecheck,
 }: {
-  bridgeSettings: BridgeSettings;
   bridgeHealth: BridgeHealth;
+  mulmoHealth: MulmoHealth | null;
+  onRecheck: () => Promise<void>;
 }) {
-  const [mulmoHealth, setMulmoHealth] = useState<MulmoHealth>({
-    ok: false,
-    error: "MulmoClaude has not been checked yet.",
-  });
-  // ponytail: checkMulmoHealth never throws (it catches into {ok:false,error}),
-  // so useAsyncAction.error stays unused here — only busy is worth reusing.
   const check = useAsyncAction();
-
-  const refreshMulmoHealth = useCallback(async () => {
-    if (!bridgeHealth.ok) return;
-    await check.run(async () => {
-      setMulmoHealth(await checkMulmoHealth(bridgeSettings));
-    });
-  }, [check, bridgeSettings, bridgeHealth.ok]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    void (async () => {
-      await Promise.resolve();
-      if (!mounted) return;
-      await refreshMulmoHealth();
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [refreshMulmoHealth]);
+  const health = mulmoHealth ?? NOT_CHECKED;
 
   return (
     <div className="space-y-8">
@@ -56,18 +39,18 @@ export function Studio({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ConnectionPill
             label="MulmoClaude"
-            ok={mulmoHealth.ok}
+            ok={health.ok}
             detail={
               !bridgeHealth.ok
                 ? "bridge offline"
-                : mulmoHealth.ok
+                : health.ok
                 ? "online"
-                : mulmoHealth.error ?? "offline"
+                : health.error ?? "offline"
             }
           />
           <button
             type="button"
-            onClick={() => void refreshMulmoHealth()}
+            onClick={() => void check.run(onRecheck)}
             className="btn-secondary text-sm py-2 px-3"
             disabled={!bridgeHealth.ok || check.busy}
           >

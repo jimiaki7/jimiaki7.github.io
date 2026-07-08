@@ -14,7 +14,6 @@ import type { OsTool } from "../../_lib/schemas";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Field } from "../ui/Field";
 import { Select, type SelectOption } from "../ui/Select";
-import { Notice } from "../ui/Notice";
 import { ErrorText } from "../ui/ErrorText";
 import { ToolCard } from "../cards/ToolCard";
 
@@ -111,7 +110,8 @@ export function ToolRegistry({
           onChange={setCategory}
           options={categoryOptions}
           disabled={!canWrite}
-        />
+          size="md"
+          />
         <Field label="Provider" id="tool-provider">
           <input
             value={provider}
@@ -149,7 +149,6 @@ export function ToolRegistry({
         </div>
       </form>
 
-      {!canWrite && <Notice variant="readonly">Supabase未接続のため読み取り専用です。</Notice>}
       {create.error && <ErrorText>{create.error}</ErrorText>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -159,7 +158,6 @@ export function ToolRegistry({
             tool={tool}
             canWrite={canWrite}
             client={client}
-            bridgeSettings={bridgeSettings}
             onRefresh={onRefresh}
             onHealthCheck={healthCheckFor(tool)}
           />

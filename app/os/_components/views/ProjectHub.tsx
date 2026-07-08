@@ -9,7 +9,6 @@ import type { OsData, OsProject } from "../../_lib/schemas";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Field } from "../ui/Field";
 import { Select, type SelectOption } from "../ui/Select";
-import { Notice } from "../ui/Notice";
 import { ErrorText } from "../ui/ErrorText";
 import { ProjectCard } from "../cards/ProjectCard";
 
@@ -85,7 +84,8 @@ export function ProjectHub({
           onChange={setDomain}
           options={domainOptions}
           disabled={!canWrite}
-        />
+          size="md"
+          />
         <Select
           label="Priority"
           id="project-priority"
@@ -93,7 +93,8 @@ export function ProjectHub({
           onChange={setPriority}
           options={priorityOptions}
           disabled={!canWrite}
-        />
+          size="md"
+          />
         <button
           type="submit"
           className="btn-primary h-12 justify-center"
@@ -115,7 +116,6 @@ export function ProjectHub({
         </div>
       </form>
 
-      {!canWrite && <Notice variant="readonly">Supabase未接続のため読み取り専用です。</Notice>}
       {create.error && <ErrorText>{create.error}</ErrorText>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

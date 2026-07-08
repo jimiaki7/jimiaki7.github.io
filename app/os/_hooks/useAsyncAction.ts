@@ -1,17 +1,24 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toErrorMessage } from "../_lib/format";
 
 export type AsyncAction = {
   run: (fn: () => Promise<void>) => Promise<void>;
   busy: boolean;
   error: string | null;
-  clearError: () => void;
 };
 
-// 8箇所の busy/error/try-catch 重複の置換先。呼び出しはイベントハンドラ経由
-// (onClick等)を前提にしており、useEffect内から直接runを呼ぶ用途ではない。
+// 8箇所の busy/error/try-catch 重複の置換先。
+//
+// ⚠ 戻り値のオブジェクトを useEffect / useCallback の依存配列に入れてはいけない。
+// useMemo で包んでも busy と error が変われば identity は変わるため、
+// 「run() が setBusy → 再レンダー → 新しい identity → effect 再実行 → run()」
+// の無限ループになる（2026-07-08、Studio が /mulmo/health を連射した実バグ）。
+// 依存配列に入れる必要があるときは、安定している `action.run` だけを入れること。
+// run は onSuccess が安定なら安定する。
+//
+// useMemo 自体は、この戻り値を props で子へ渡すときの無駄な再レンダーを減らすため。
 export function useAsyncAction(
   onSuccess?: () => void | Promise<void>,
 ): AsyncAction {
@@ -34,7 +41,5 @@ export function useAsyncAction(
     [onSuccess],
   );
 
-  const clearError = useCallback(() => setError(null), []);
-
-  return { run, busy, error, clearError };
+  return useMemo(() => ({ run, busy, error }), [run, busy, error]);
 }

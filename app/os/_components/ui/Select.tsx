@@ -16,6 +16,7 @@ export function Select<T extends string = string>({
   onChange,
   options,
   disabled,
+  size = "sm",
 }: {
   label?: string;
   ariaLabel?: string;
@@ -24,6 +25,8 @@ export function Select<T extends string = string>({
   onChange: (value: T) => void;
   options: Array<SelectOption<T>>;
   disabled?: boolean;
+  /** sm: カード内のインライン操作 / md: フォーム内（input と同じ高さで並ぶ） */
+  size?: "sm" | "md";
 }) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
@@ -35,7 +38,11 @@ export function Select<T extends string = string>({
       value={value}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value as T)}
-      className="h-8 rounded-lg px-2 text-xs"
+      className={
+        size === "md"
+          ? "h-12 w-full rounded-lg px-3 text-sm"
+          : "h-8 rounded-lg px-2 text-xs"
+      }
       style={{
         background: "var(--bg-card)",
         border: "1px solid var(--border)",

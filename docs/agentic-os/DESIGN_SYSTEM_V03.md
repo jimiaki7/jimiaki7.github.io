@@ -96,7 +96,7 @@ _lib/            (既存。中身のみ修正)
 _hooks/          (新設)
   useOsSession.ts   useOsData.ts   useBridge.ts   useAsyncAction.ts
 _components/
-  OsApp.tsx                      ← シェル＋ルーティングのみ。300行以内。
+  OsApp.tsx                      ← シェル＋ルーティングのみ。350行以内（全ビュー共通の警告バナーを含む）。
   auth/AuthFrame.tsx  auth/LoginState.tsx  auth/SetupState.tsx  auth/UnauthorizedState.tsx
   ui/SectionHeader.tsx  ui/MetricCard.tsx  ui/StatusBadge.tsx  ui/ConnectionPill.tsx
   ui/SystemTile.tsx  ui/CompactItem.tsx  ui/Notice.tsx  ui/ErrorText.tsx
@@ -113,7 +113,9 @@ _components/
 
 ```ts
 // _hooks/useAsyncAction.ts — 8箇所の try/catch/busy/error 重複を置換
-type AsyncAction = { run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; error: string | null; clearError: () => void };
+// ⚠ 戻り値のオブジェクトを useEffect/useCallback の依存配列に入れてはいけない（busy が変わると
+//   identity も変わり無限ループになる）。依存に必要なら安定している `action.run` だけを入れる。
+type AsyncAction = { run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; error: string | null };
 export function useAsyncAction(onSuccess?: () => void | Promise<void>): AsyncAction;
 // run(): busy=true → fn() → 成功なら error=null と onSuccess() → 失敗なら error=toErrorMessage(e) → finally busy=false
 
@@ -180,7 +182,21 @@ export function toErrorMessage(error: unknown, fallback?: string): string;
 ## 8. 完了条件（全て満たすこと）
 
 - `npm run lint` exit 0 / `npm run build` exit 0・全ルート Static / `npm test` 全緑
-- OsApp.tsx が 300行以内。`grep -c "#f85149\|#d29922\|rgba(88, *166" app/os/_components/*.tsx` が 0
+- OsApp.tsx が 350行以内。`grep -c "#f85149\|#d29922\|rgba(88, *166" app/os/_components/*.tsx` が 0
 - ライト・ダーク両方のスクリーンショットで、公開トップ・/os 全8ビュー・/os/settings が破綻しない
 - 公開ページ（`/`・`/tokushoho`）の**ライト時の見た目が現状と同一**（ブランド維持。Works の無効CSS修正を除く）
 - 既存の振る舞い（CRUD・Vault同期・パスワード設定・Bridge健全性）が E2E で全て動作
+
+
+---
+
+## 9. 実装後に判明した事実（v0.3 の実測ログ）
+
+- Studio が `useAsyncAction` の戻り値を `useEffect` の依存に入れており、Bridge オンライン時に `/mulmo/health` を
+  **無限連射**していた（独立レビューの実測: 600ms で 251 回）。修正後は Studio を 5 秒開いて **0 回**、
+  Recheck ボタン 1 押下で **1 回**（統括が実ブラウザで計測）。
+- `localPreview` 認証状態は撤去した（PRODUCT_SPEC「Supabase 未設定 → セットアップ表示」に一本化）。
+  `OsSettingsApp` と `config.isLocalPreviewHost` に残っていた参照も削除。
+- 部分失敗時の挙動を実ブラウザで確認: `cost_events` の GET だけを 403 に差し替えると、
+  他 6 テーブルは実データのまま、全ビューに「一部のデータを読み込めませんでした（1件）… cost_events: …」の警告が出る。
+- コントラスト: 8 ビュー × 2 テーマ = 2,614 要素で WCAG AA 不合格 0 件（`--danger` のダーク値を `#ff7b72` に上げて達成）。

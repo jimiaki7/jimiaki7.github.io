@@ -16,7 +16,7 @@ export function AgentRuns({ data }: { data: OsData }) {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.8fr] gap-6">
         <div className="space-y-4">
           {data.agentRuns.map((run) => (
-            <article key={run.id} className="card p-5">
+            <article key={run.id} className="os-card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="font-semibold">{run.title}</h3>

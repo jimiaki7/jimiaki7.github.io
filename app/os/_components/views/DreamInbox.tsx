@@ -9,7 +9,6 @@ import { createInsight } from "../../_lib/os-data";
 import type { OsData, OsInsight } from "../../_lib/schemas";
 import { ErrorText } from "../ui/ErrorText";
 import { Field } from "../ui/Field";
-import { Notice } from "../ui/Notice";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Select } from "../ui/Select";
 
@@ -91,14 +90,16 @@ export function DreamInbox({
           onChange={setCategory}
           options={categoryOptions}
           disabled={!canWrite}
-        />
+          size="md"
+          />
         <Select
           label="Priority"
           value={priority}
           onChange={setPriority}
           options={priorityOptions}
           disabled={!canWrite}
-        />
+          size="md"
+          />
         <button
           type="submit"
           className="btn-primary h-12 justify-center"
@@ -124,7 +125,6 @@ export function DreamInbox({
         </div>
       </form>
 
-      {!canWrite && <Notice variant="readonly">Supabase未接続のため読み取り専用です。</Notice>}
       {addInsight.error && <ErrorText>{addInsight.error}</ErrorText>}
 
       <div className="space-y-4">

@@ -3,7 +3,6 @@
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useAsyncAction } from "../../_hooks/useAsyncAction";
-import type { BridgeSettings } from "../../_lib/bridge";
 import { formatDate } from "../../_lib/format";
 import { updateTool } from "../../_lib/os-data";
 import type { OsTool } from "../../_lib/schemas";
@@ -17,9 +16,8 @@ const statusOptions: Array<SelectOption<OsTool["status"]>> = [
   { value: "planned", label: "Planned" },
 ];
 
-// bridgeSettings: 現行OsApp.tsxの呼び出しシグネチャ互換のためpropsの型には残すが、
-// ヘルスチェック自体はonHealthCheck（useBridgeのrecheckに配線される想定）に一元化した
-// ため、このコンポーネント内では参照しない。
+// ヘルスチェックは ToolRegistry が per-tool のクロージャ(onHealthCheck)として渡す。
+// ToolCard は Bridge の設定も health API も知らない。
 export function ToolCard({
   tool,
   canWrite,
@@ -30,7 +28,6 @@ export function ToolCard({
   tool: OsTool;
   canWrite: boolean;
   client: SupabaseClient | null;
-  bridgeSettings: BridgeSettings;
   onRefresh: () => Promise<void>;
   onHealthCheck?: () => Promise<void>;
 }) {

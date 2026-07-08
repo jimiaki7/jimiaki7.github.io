@@ -35,7 +35,7 @@ export function ConfirmButton({
             setConfirming(false);
             await onConfirm();
           }}
-          disabled={busy}
+          disabled={busy || disabled}
         >
           {label}
         </button>

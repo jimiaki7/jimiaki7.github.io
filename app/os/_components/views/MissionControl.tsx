@@ -20,7 +20,6 @@ import { MetricCard } from "../ui/MetricCard";
 import { SectionHeader } from "../ui/SectionHeader";
 import { CompactItem } from "../ui/CompactItem";
 import { SystemTile } from "../ui/SystemTile";
-import { Notice } from "../ui/Notice";
 import { ErrorText } from "../ui/ErrorText";
 import { FocusRow } from "../cards/FocusRow";
 import { ApprovalCard } from "../cards/ApprovalCard";
@@ -67,18 +66,7 @@ export function MissionControl({
 
   return (
     <div className="space-y-8">
-      {!canWrite && <Notice variant="readonly">Supabase未接続のため読み取り専用です。</Notice>}
-
-      {data.diagnostics.length > 0 && (
-        <Notice variant="warning">
-          一部のデータを読み込めませんでした（{data.diagnostics.length}件）。
-          <ul className="mt-1 list-disc list-inside">
-            {data.diagnostics.map((message, index) => (
-              <li key={index}>{message}</li>
-            ))}
-          </ul>
-        </Notice>
-      )}
+      {/* 読み取り専用 / diagnostics の警告は OsApp が <main> 直下で全ビュー共通に描画する */}
 
       {isEmpty && data.source === "supabase" && (
         <div

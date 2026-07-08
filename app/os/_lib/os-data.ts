@@ -125,7 +125,7 @@ export async function loadOsData(client: SupabaseClient): Promise<OsData> {
   // ponytail: no fallback to seed data here. Supabase接続時は決してシードに
   // 落ちない。読み込みに失敗したテーブルは readTable が空配列を返し
   // diagnostics に理由を積んでいるので、そのまま実データとして返す。
-  // createSeedData は hasSupabaseConfig()===false の呼び出し側（OsApp）専用。
+  // createSeedData は Supabase 未接続時のプレビュー専用で、useOsData だけが呼ぶ。
   return {
     projects: parseRows(projects, projectSchema, diagnostics, "projects"),
     tools: parseRows(tools, toolSchema, diagnostics, "tools"),
