@@ -1,0 +1,23 @@
+filters:
+  and:
+    - file.inFolder("01_Project/説教/日曜説教")
+properties:
+  file.name:
+    displayName: ファイル名
+  note.title:
+    displayName: タイトル
+  note.tags:
+    displayName: タグ
+  note["creation date"]:
+    displayName: 作成日
+views:
+  - type: table
+    name: "日曜説教"
+    sort:
+      - property: file.mtime
+        direction: DESC
+    order:
+      - file.name
+      - note.title
+      - note.tags
+      - note["creation date"]
