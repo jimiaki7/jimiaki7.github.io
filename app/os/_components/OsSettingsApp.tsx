@@ -303,8 +303,106 @@ export default function OsSettingsApp() {
             </section>
           </div>
         )}
+
+        {authState === "ready" && <AccountCard client={client} />}
       </div>
     </main>
+  );
+}
+
+function AccountCard({ client }: { client: SupabaseClient | null }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client) {
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setStatus("error");
+      setMessage("パスワードは8文字以上にしてください。");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setStatus("error");
+      setMessage("パスワードが一致しません。");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage("");
+    const { error } = await client.auth.updateUser({ password: newPassword });
+    setSubmitting(false);
+
+    if (error) {
+      setStatus("error");
+      setMessage(error.message);
+      return;
+    }
+
+    setStatus("success");
+    setMessage(
+      "パスワードを設定しました。次回から /os のパスワード欄でログインできます（Magic Linkも引き続き使えます）。",
+    );
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  return (
+    <section
+      className="rounded-xl p-6 mt-6"
+      style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+    >
+      <div className="flex items-center gap-2 mb-5">
+        <KeyRound size={18} style={{ color: "var(--accent)" }} />
+        <h2 className="text-lg font-semibold">アカウント</h2>
+      </div>
+      <form onSubmit={submit} className="space-y-4 max-w-sm">
+        <div>
+          <label htmlFor="account-new-password">新しいパスワード</label>
+          <input
+            id="account-new-password"
+            type="password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            placeholder="8文字以上"
+            disabled={submitting}
+          />
+        </div>
+        <div>
+          <label htmlFor="account-confirm-password">確認</label>
+          <input
+            id="account-confirm-password"
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            placeholder="もう一度入力"
+            disabled={submitting}
+          />
+        </div>
+        <button type="submit" className="btn-primary" disabled={submitting}>
+          {submitting ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Save size={16} />
+          )}
+          パスワードを設定
+        </button>
+      </form>
+      {message && (
+        <p
+          className="text-sm mt-4"
+          style={{ color: status === "error" ? "#f85149" : "var(--accent-green)" }}
+        >
+          {message}
+        </p>
+      )}
+    </section>
   );
 }
 

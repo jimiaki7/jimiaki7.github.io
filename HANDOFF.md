@@ -45,8 +45,19 @@ Notion の DB 機能（→ Obsidian Bases ネイティブ機能で実現）と M
 
 - Jimiの決定: Supabaseは**個人アカウント（jimiaki7@gmail.com）側に新規作成**（事業orgのACTIVE 2枠は温存）。オーナーは jimiaki7@gmail.com。
 - 実施: config.ts の OWNER_EMAIL 既定を jimiaki7@gmail.com へ変更。deploy.yml の build に NEXT_PUBLIC_SUPABASE_URL / ANON_KEY（GitHub repo variables 参照、未設定時は空＝セットアップ画面）と NEXT_PUBLIC_OS_OWNER_EMAIL を注入。
-- **ブロック中**: 個人アカウントの Supabase 認証が手元に無い（keychain は事業用のみ・MCP空応答）。Jimi のログイン操作（下記）待ち。
+- **ブロック中**: 個人アカウントの Supabase 認証が手元に無い（keychain は事業用のみ・MCP空応答）。Jimi のアクセストークン発行（下記）待ち。
 - migration 適用後の実体確認は SQL で行う（supabase-project-ops：「Applying」表示を信じない）。
+- **デプロイ完了（2026-07-08）**: commit 15faa85（43ファイル）+ cc6a1f2（trailingSlash）を main へ push。GitHub Actions build/deploy 両方 success。実測: https://jimiaki7.github.io/os/ = 200、/os = 200、/tokushoho/ = 200、/ = 200。Supabase 未設定のため /os は設計どおりセットアップ画面。
+- ⚠ 注意: 個人アカウントで `supabase login` を実行すると **keychain の事業用トークンが上書きされる**。個人側はダッシュボードでアクセストークンを発行し、`SUPABASE_ACCESS_TOKEN=<token>` の env 渡しで使うこと（keychain に入れるなら別サービス名で）。
+
+## Supabase 本番開通（2026-07-08 完了）
+
+- 個人org「jimiaki7's Org」に **jimi-os**（ref: `ewlrhxsyhqeoqrkeeexw`、東京、無料枠）を作成。
+- migration適用は「ls → migration list → dry-run → push → **SQL実体確認**」を完走：public テーブル12・ポリシー19・トリガー関数1・**RLS無効テーブル0** を Management API のSQLで確認。
+- Auth設定済み: site_url=https://jimiaki7.github.io、redirect許可=/os/auth/callback（本番/localhost、スラッシュ有無両方）。
+- GitHub repo variables に URL と publishable key（`sb_publishable_...`、公開可）を設定し再デプロイ → **本番 https://jimiaki7.github.io/os/ が実ブラウザでログイン画面を描画することを確認**。
+- 秘密の保管場所: 個人アクセストークン=keychain「Supabase CLI personal」／DBパスワード=keychain「Supabase jimi-os DB」。チャットに出したトークンは不要になったらダッシュボードで失効可。
+- 初回ログイン: jimiaki7@gmail.com でMagic Link送信→メールのリンククリック（初回ログインでユーザーが自動作成される）。
 
 ## 未完了・残課題（すべてJimiの承認・判断待ち）
 - Supabase プロジェクト作成/migration 適用（要承認）

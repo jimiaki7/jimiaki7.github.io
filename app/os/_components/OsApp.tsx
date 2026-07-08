@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Sparkles,
   Terminal,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -57,9 +58,24 @@ import {
   type VaultSearchResult,
 } from "../_lib/bridge";
 import { formatDate, formatUsd } from "../_lib/format";
-import { createProject, loadOsData } from "../_lib/os-data";
 import {
+  createInsight,
+  createMemoryItem,
+  createProject,
+  createTool,
+  deleteMemoryItem,
+  loadOsData,
+  seedInitialData,
+  updateApprovalStatus,
+  updateInsightStatus,
+  updateProject,
+  updateTool,
+  upsertVaultMemories,
+} from "../_lib/os-data";
+import {
+  type OsApprovalRequest,
   type OsData,
+  type OsInsight,
   type OsProject,
   type OsTool,
 } from "../_lib/schemas";
@@ -229,6 +245,7 @@ export default function OsApp() {
         ],
       }
     : data;
+  const canWrite = Boolean(client && user && displayData.source === "supabase");
 
   return (
     <div
@@ -375,13 +392,24 @@ export default function OsApp() {
           )}
 
           {activeView === "mission" && (
-            <MissionControl data={displayData} bridgeHealth={bridgeHealth} />
+            <MissionControl
+              data={displayData}
+              bridgeHealth={bridgeHealth}
+              client={client}
+              user={user}
+              canWrite={canWrite}
+              onRefresh={refreshData}
+            />
           )}
           {activeView === "memory" && (
             <MemoryGalaxy
               data={displayData}
               bridgeSettings={bridgeSettings}
               bridgeHealth={bridgeHealth}
+              client={client}
+              user={user}
+              canWrite={canWrite}
+              onRefresh={refreshData}
             />
           )}
           {activeView === "projects" && (
@@ -389,17 +417,35 @@ export default function OsApp() {
               data={displayData}
               client={client}
               user={user}
-              onCreated={refreshData}
+              canWrite={canWrite}
+              onRefresh={refreshData}
             />
           )}
-          {activeView === "tools" && <ToolRegistry tools={displayData.tools} />}
+          {activeView === "tools" && (
+            <ToolRegistry
+              tools={displayData.tools}
+              client={client}
+              user={user}
+              canWrite={canWrite}
+              bridgeSettings={bridgeSettings}
+              onRefresh={refreshData}
+            />
+          )}
           {activeView === "vault-db" && (
             <VaultDb bridgeSettings={bridgeSettings} bridgeHealth={bridgeHealth} />
           )}
           {activeView === "studio" && (
             <Studio bridgeSettings={bridgeSettings} bridgeHealth={bridgeHealth} />
           )}
-          {activeView === "dream" && <DreamInbox data={displayData} />}
+          {activeView === "dream" && (
+            <DreamInbox
+              data={displayData}
+              client={client}
+              user={user}
+              canWrite={canWrite}
+              onRefresh={refreshData}
+            />
+          )}
           {activeView === "agents" && <AgentRuns data={displayData} />}
         </main>
       </div>
@@ -643,9 +689,17 @@ function MobileViewSelect({
 function MissionControl({
   data,
   bridgeHealth,
+  client,
+  user,
+  canWrite,
+  onRefresh,
 }: {
   data: OsData;
   bridgeHealth: BridgeHealth;
+  client: SupabaseClient | null;
+  user: User | null;
+  canWrite: boolean;
+  onRefresh: () => Promise<void>;
 }) {
   const activeProjects = data.projects.filter((project) => project.status === "active");
   const pendingApprovals = data.approvals.filter(
@@ -663,9 +717,63 @@ function MissionControl({
           data.memoryItems.reduce((sum, item) => sum + (item.strength ?? 0), 0) /
             data.memoryItems.length,
         );
+  const isEmpty =
+    data.projects.length === 0 && data.tools.length === 0 && data.insights.length === 0;
+
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState("");
+
+  const runSeed = async () => {
+    if (!client || !user) return;
+    setSeeding(true);
+    setSeedError("");
+    try {
+      await seedInitialData(client, user.id);
+      await onRefresh();
+    } catch (error) {
+      setSeedError(
+        error instanceof Error ? error.message : "初期データの投入に失敗しました。",
+      );
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
+      {!canWrite && <ReadOnlyNotice />}
+
+      {isEmpty && data.source === "supabase" && (
+        <div
+          className="rounded-lg p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          style={{
+            background: "rgba(22, 120, 74, 0.08)",
+            border: "1px solid rgba(22, 120, 74, 0.35)",
+          }}
+        >
+          <div>
+            <p className="text-sm font-semibold">まだデータがありません</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+              初期データ（プロジェクト・ツール・インサイト）を投入して始めます。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={runSeed}
+            className="btn-primary text-sm py-2 px-3"
+            disabled={!canWrite || seeding}
+          >
+            {seeding ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            初期データを投入
+          </button>
+        </div>
+      )}
+      {seedError && (
+        <p className="text-sm" style={{ color: "#f85149" }}>
+          {seedError}
+        </p>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard
           icon={Layers3}
@@ -697,13 +805,24 @@ function MissionControl({
         <div>
           <SectionHeader
             icon={Activity}
-            title="Today's Operating Picture"
-            subtitle="Jimiの今日の判断に必要なAI・記憶・プロジェクトの要点。"
+            title="今日のフォーカス"
+            subtitle="アクティブなプロジェクトの次の行動。完了したら片付ける。"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {activeProjects.slice(0, 4).map((project) => (
-              <ProjectCard key={project.id} project={project} />
+          <div className="space-y-3">
+            {activeProjects.map((project) => (
+              <FocusRow
+                key={project.id}
+                project={project}
+                canWrite={canWrite}
+                client={client}
+                onRefresh={onRefresh}
+              />
             ))}
+            {activeProjects.length === 0 && (
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                アクティブなプロジェクトはありません。
+              </p>
+            )}
           </div>
         </div>
 
@@ -723,6 +842,30 @@ function MissionControl({
               />
             ))}
           </div>
+        </div>
+      </section>
+
+      <section>
+        <SectionHeader
+          icon={ShieldCheck}
+          title="承認キュー"
+          subtitle="外部アクション前の承認待ち。"
+        />
+        <div className="space-y-3">
+          {pendingApprovals.map((approval) => (
+            <ApprovalCard
+              key={approval.id}
+              approval={approval}
+              canWrite={canWrite}
+              client={client}
+              onRefresh={onRefresh}
+            />
+          ))}
+          {pendingApprovals.length === 0 && (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              承認待ちの項目はありません。
+            </p>
+          )}
         </div>
       </section>
 
@@ -762,19 +905,169 @@ function MissionControl({
   );
 }
 
+function ReadOnlyNotice() {
+  return (
+    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+      Supabase未接続のため読み取り専用です。
+    </p>
+  );
+}
+
+function FocusRow({
+  project,
+  canWrite,
+  client,
+  onRefresh,
+}: {
+  project: OsProject;
+  canWrite: boolean;
+  client: SupabaseClient | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const complete = async () => {
+    if (!client) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateProject(client, project.id, { status: "completed" });
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">{project.name}</h3>
+          <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            {project.next_action ?? "次の行動は未設定"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={complete}
+          className="btn-secondary text-xs py-1.5 px-2.5 shrink-0"
+          disabled={!canWrite || busy}
+        >
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+          完了
+        </button>
+      </div>
+      {error && (
+        <p className="text-xs mt-2" style={{ color: "#f85149" }}>
+          {error}
+        </p>
+      )}
+    </article>
+  );
+}
+
+function ApprovalCard({
+  approval,
+  canWrite,
+  client,
+  onRefresh,
+}: {
+  approval: OsApprovalRequest;
+  canWrite: boolean;
+  client: SupabaseClient | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const decide = async (status: "approved" | "rejected") => {
+    if (!client) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateApprovalStatus(client, approval.id, status);
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="card p-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <StatusBadge label={approval.risk_level} tone={approval.risk_level} />
+            <StatusBadge label={approval.action_type} tone="neutral" />
+          </div>
+          <h3 className="text-sm font-semibold">{approval.title}</h3>
+          <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+            {approval.requested_by ?? "unknown"}
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => decide("approved")}
+            className="btn-secondary text-xs py-1.5 px-2.5"
+            disabled={!canWrite || busy}
+          >
+            承認
+          </button>
+          <button
+            type="button"
+            onClick={() => decide("rejected")}
+            className="btn-secondary text-xs py-1.5 px-2.5"
+            disabled={!canWrite || busy}
+          >
+            却下
+          </button>
+        </div>
+      </div>
+      {error && (
+        <p className="text-xs mt-2" style={{ color: "#f85149" }}>
+          {error}
+        </p>
+      )}
+    </article>
+  );
+}
+
 function MemoryGalaxy({
   data,
   bridgeSettings,
   bridgeHealth,
+  client,
+  user,
+  canWrite,
+  onRefresh,
 }: {
   data: OsData;
   bridgeSettings: BridgeSettings;
   bridgeHealth: BridgeHealth;
+  client: SupabaseClient | null;
+  user: User | null;
+  canWrite: boolean;
+  onRefresh: () => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<VaultSearchResult[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [addStatus, setAddStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [addMessage, setAddMessage] = useState("");
+
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "error">("idle");
+  const [syncMessage, setSyncMessage] = useState("");
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -790,6 +1083,58 @@ function MemoryGalaxy({
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Vault search failed.");
+    }
+  };
+
+  const submitManual = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !user || !title.trim()) {
+      return;
+    }
+
+    setAddStatus("saving");
+    setAddMessage("");
+    try {
+      const tags = tagsInput
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      await createMemoryItem(client, user.id, {
+        title,
+        source_type: "manual",
+        source_path: null,
+        summary: summary || null,
+        tags,
+      });
+      setTitle("");
+      setSummary("");
+      setTagsInput("");
+      setAddStatus("idle");
+      await onRefresh();
+    } catch (error) {
+      setAddStatus("error");
+      setAddMessage(
+        error instanceof Error ? error.message : "メモリーの追加に失敗しました。",
+      );
+    }
+  };
+
+  const syncVault = async () => {
+    if (!client || !user) {
+      return;
+    }
+
+    setSyncStatus("syncing");
+    setSyncMessage("");
+    try {
+      const result = await queryVaultDb(bridgeSettings, { limit: 50 });
+      const inserted = await upsertVaultMemories(client, user.id, result.rows);
+      setSyncMessage(`${inserted}件取り込みました。`);
+      setSyncStatus("idle");
+      await onRefresh();
+    } catch (error) {
+      setSyncStatus("error");
+      setSyncMessage(error instanceof Error ? error.message : "Vault同期に失敗しました。");
     }
   };
 
@@ -849,15 +1194,101 @@ function MemoryGalaxy({
         </div>
       )}
 
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <button
+          type="button"
+          onClick={syncVault}
+          className="btn-secondary text-sm py-2 px-3"
+          disabled={!canWrite || !bridgeHealth.ok || syncStatus === "syncing"}
+        >
+          {syncStatus === "syncing" ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <RefreshCw size={16} />
+          )}
+          Vaultから同期
+        </button>
+        {syncMessage && (
+          <p
+            className="text-sm"
+            style={{ color: syncStatus === "error" ? "#f85149" : "var(--accent-green)" }}
+          >
+            {syncMessage}
+          </p>
+        )}
+      </div>
+
+      <form
+        onSubmit={submitManual}
+        className="rounded-xl p-5 grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto] gap-4 items-end"
+        style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+      >
+        <div>
+          <label htmlFor="memory-title">New memory</label>
+          <input
+            id="memory-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="タイトル"
+            disabled={!canWrite}
+          />
+        </div>
+        <div>
+          <label htmlFor="memory-tags">Tags (comma区切り)</label>
+          <input
+            id="memory-tags"
+            value={tagsInput}
+            onChange={(event) => setTagsInput(event.target.value)}
+            placeholder="tag1, tag2"
+            disabled={!canWrite}
+          />
+        </div>
+        <button
+          type="submit"
+          className="btn-primary h-12 justify-center"
+          disabled={!canWrite || addStatus === "saving"}
+        >
+          {addStatus === "saving" ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Plus size={16} />
+          )}
+          Add
+        </button>
+        <div className="lg:col-span-3">
+          <label htmlFor="memory-summary">Summary</label>
+          <textarea
+            id="memory-summary"
+            rows={2}
+            value={summary}
+            onChange={(event) => setSummary(event.target.value)}
+            placeholder="要約"
+            disabled={!canWrite}
+          />
+        </div>
+      </form>
+
+      {!canWrite && <ReadOnlyNotice />}
+      {addMessage && (
+        <p className="text-sm" style={{ color: "#f85149" }}>
+          {addMessage}
+        </p>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {data.memoryItems.map((item) => (
           <MemoryCard
             key={item.id}
+            id={item.id}
             title={item.title}
             path={item.source_path ?? item.source_type}
             summary={item.summary ?? ""}
             tags={item.tags ?? []}
             strength={item.strength ?? 0}
+            canDelete={item.source_type === "manual"}
+            canWrite={canWrite}
+            client={client}
+            onRefresh={onRefresh}
           />
         ))}
       </div>
@@ -869,12 +1300,14 @@ function ProjectHub({
   data,
   client,
   user,
-  onCreated,
+  canWrite,
+  onRefresh,
 }: {
   data: OsData;
   client: SupabaseClient | null;
   user: User | null;
-  onCreated: () => void;
+  canWrite: boolean;
+  onRefresh: () => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState<OsProject["domain"]>("development");
@@ -882,8 +1315,6 @@ function ProjectHub({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
-
-  const canWrite = Boolean(client && user && data.source === "supabase");
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -903,7 +1334,7 @@ function ProjectHub({
       setName("");
       setDescription("");
       setStatus("idle");
-      await onCreated();
+      await onRefresh();
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Project creation failed.");
@@ -995,11 +1426,7 @@ function ProjectHub({
         </div>
       </form>
 
-      {!canWrite && (
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Supabase migration適用前、またはシード表示中のため新規作成は無効です。
-        </p>
-      )}
+      {!canWrite && <ReadOnlyNotice />}
       {message && (
         <p className="text-sm" style={{ color: "#f85149" }}>
           {message}
@@ -1008,14 +1435,73 @@ function ProjectHub({
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {data.projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
+          <ProjectCard
+            key={project.id}
+            project={project}
+            canWrite={canWrite}
+            client={client}
+            onRefresh={onRefresh}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function ToolRegistry({ tools }: { tools: OsTool[] }) {
+function ToolRegistry({
+  tools,
+  client,
+  user,
+  canWrite,
+  bridgeSettings,
+  onRefresh,
+}: {
+  tools: OsTool[];
+  client: SupabaseClient | null;
+  user: User | null;
+  canWrite: boolean;
+  bridgeSettings: BridgeSettings;
+  onRefresh: () => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<OsTool["category"]>("ai");
+  const [provider, setProvider] = useState("");
+  const [launchUrl, setLaunchUrl] = useState("");
+  const [notes, setNotes] = useState("");
+  const [formStatus, setFormStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [formMessage, setFormMessage] = useState("");
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !user || !name.trim()) {
+      return;
+    }
+
+    setFormStatus("saving");
+    setFormMessage("");
+    try {
+      await createTool(client, user.id, {
+        name,
+        category,
+        status: "planned",
+        provider: provider || null,
+        launch_url: launchUrl || null,
+        notes: notes || null,
+      });
+      setName("");
+      setProvider("");
+      setLaunchUrl("");
+      setNotes("");
+      setFormStatus("idle");
+      await onRefresh();
+    } catch (error) {
+      setFormStatus("error");
+      setFormMessage(
+        error instanceof Error ? error.message : "ツールの追加に失敗しました。",
+      );
+    }
+  };
+
   return (
     <div className="space-y-8">
       <SectionHeader
@@ -1023,40 +1509,228 @@ function ToolRegistry({ tools }: { tools: OsTool[] }) {
         title="Tool Registry"
         subtitle="AI、記憶、プロジェクト、インフラをモデル非依存で管理。"
       />
+
+      <form
+        onSubmit={submit}
+        className="rounded-xl p-5 grid grid-cols-1 lg:grid-cols-[1fr_140px_1fr_1fr_auto] gap-4 items-end"
+        style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+      >
+        <div>
+          <label htmlFor="tool-name">New tool</label>
+          <input
+            id="tool-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Tool name"
+            disabled={!canWrite}
+          />
+        </div>
+        <div>
+          <label htmlFor="tool-category">Category</label>
+          <select
+            id="tool-category"
+            value={category}
+            onChange={(event) => setCategory(event.target.value as OsTool["category"])}
+            disabled={!canWrite}
+            className="h-12 rounded-lg px-3 text-sm w-full"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <option value="ai">AI</option>
+            <option value="memory">Memory</option>
+            <option value="project">Project</option>
+            <option value="automation">Automation</option>
+            <option value="infra">Infra</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="tool-provider">Provider</label>
+          <input
+            id="tool-provider"
+            value={provider}
+            onChange={(event) => setProvider(event.target.value)}
+            placeholder="Provider"
+            disabled={!canWrite}
+          />
+        </div>
+        <div>
+          <label htmlFor="tool-launch-url">Launch URL</label>
+          <input
+            id="tool-launch-url"
+            value={launchUrl}
+            onChange={(event) => setLaunchUrl(event.target.value)}
+            placeholder="https://..."
+            disabled={!canWrite}
+          />
+        </div>
+        <button
+          type="submit"
+          className="btn-primary h-12 justify-center"
+          disabled={!canWrite || formStatus === "saving"}
+        >
+          {formStatus === "saving" ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Plus size={16} />
+          )}
+          Add
+        </button>
+        <div className="lg:col-span-5">
+          <label htmlFor="tool-notes">Notes</label>
+          <textarea
+            id="tool-notes"
+            rows={2}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="このツールの役割"
+            disabled={!canWrite}
+          />
+        </div>
+      </form>
+
+      {!canWrite && <ReadOnlyNotice />}
+      {formMessage && (
+        <p className="text-sm" style={{ color: "#f85149" }}>
+          {formMessage}
+        </p>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {tools.map((tool) => (
-          <article key={tool.id} className="card p-5">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <h3 className="font-semibold">{tool.name}</h3>
-                <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                  {tool.provider ?? tool.category}
-                </p>
-              </div>
-              <ToolStatusBadge status={tool.status} />
-            </div>
-            <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
-              {tool.notes}
-            </p>
-            <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
-              <span>{tool.category}</span>
-              <span>{formatDate(tool.last_checked_at)}</span>
-            </div>
-            {tool.launch_url && (
-              <a
-                href={tool.launch_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary text-sm py-2 px-3 mt-4"
-              >
-                <ExternalLink size={15} />
-                Open
-              </a>
-            )}
-          </article>
+          <ToolCard
+            key={tool.id}
+            tool={tool}
+            canWrite={canWrite}
+            client={client}
+            bridgeSettings={bridgeSettings}
+            onRefresh={onRefresh}
+          />
         ))}
       </div>
     </div>
+  );
+}
+
+function ToolCard({
+  tool,
+  canWrite,
+  client,
+  bridgeSettings,
+  onRefresh,
+}: {
+  tool: OsTool;
+  canWrite: boolean;
+  client: SupabaseClient | null;
+  bridgeSettings: BridgeSettings;
+  onRefresh: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const canHealthCheck = tool.name.includes("Bridge") || tool.name.includes("MulmoClaude");
+
+  const updateStatus = async (status: OsTool["status"]) => {
+    if (!client) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateTool(client, tool.id, { status });
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runHealthCheck = async () => {
+    if (!client) return;
+    setBusy(true);
+    setError("");
+    try {
+      const health = tool.name.includes("Bridge")
+        ? await checkBridgeHealth(bridgeSettings)
+        : await checkMulmoHealth(bridgeSettings);
+      await updateTool(client, tool.id, {
+        status: health.ok ? "connected" : "offline",
+        last_checked_at: new Date().toISOString(),
+      });
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ヘルスチェックに失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="card p-5">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h3 className="font-semibold">{tool.name}</h3>
+          <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+            {tool.provider ?? tool.category}
+          </p>
+        </div>
+        <select
+          value={tool.status}
+          onChange={(event) => updateStatus(event.target.value as OsTool["status"])}
+          disabled={!canWrite || busy}
+          className="h-8 rounded-lg px-2 text-xs"
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            color: "var(--text-primary)",
+          }}
+        >
+          <option value="connected">Connected</option>
+          <option value="manual">Manual</option>
+          <option value="offline">Offline</option>
+          <option value="planned">Planned</option>
+        </select>
+      </div>
+      <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
+        {tool.notes}
+      </p>
+      <div
+        className="flex items-center justify-between text-xs mb-4"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        <span>{tool.category}</span>
+        <span>{formatDate(tool.last_checked_at)}</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {canHealthCheck && (
+          <button
+            type="button"
+            onClick={runHealthCheck}
+            className="btn-secondary text-sm py-2 px-3"
+            disabled={!canWrite || busy}
+          >
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+            ヘルスチェック
+          </button>
+        )}
+        {tool.launch_url && (
+          <a
+            href={tool.launch_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary text-sm py-2 px-3"
+          >
+            <ExternalLink size={15} />
+            Open
+          </a>
+        )}
+      </div>
+      {error && (
+        <p className="text-xs mt-2" style={{ color: "#f85149" }}>
+          {error}
+        </p>
+      )}
+    </article>
   );
 }
 
@@ -1383,7 +2057,54 @@ function Studio({
   );
 }
 
-function DreamInbox({ data }: { data: OsData }) {
+function DreamInbox({
+  data,
+  client,
+  user,
+  canWrite,
+  onRefresh,
+}: {
+  data: OsData;
+  client: SupabaseClient | null;
+  user: User | null;
+  canWrite: boolean;
+  onRefresh: () => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState<OsInsight["category"]>("workflow");
+  const [priority, setPriority] = useState<OsInsight["priority"]>("medium");
+  const [recommendation, setRecommendation] = useState("");
+  const [formStatus, setFormStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [formMessage, setFormMessage] = useState("");
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !user || !title.trim()) {
+      return;
+    }
+
+    setFormStatus("saving");
+    setFormMessage("");
+    try {
+      await createInsight(client, user.id, {
+        title,
+        category,
+        priority,
+        rationale: null,
+        recommendation: recommendation || null,
+      });
+      setTitle("");
+      setRecommendation("");
+      setFormStatus("idle");
+      await onRefresh();
+    } catch (error) {
+      setFormStatus("error");
+      setFormMessage(
+        error instanceof Error ? error.message : "インサイトの追加に失敗しました。",
+      );
+    }
+  };
+
   return (
     <div className="space-y-8">
       <SectionHeader
@@ -1391,37 +2112,189 @@ function DreamInbox({ data }: { data: OsData }) {
         title="Insight / Dream Inbox"
         subtitle="OSが毎日見るべき改善、重複、記憶の健康、機会を承認待ちにする。"
       />
+
+      <form
+        onSubmit={submit}
+        className="rounded-xl p-5 grid grid-cols-1 lg:grid-cols-[1fr_140px_140px_auto] gap-4 items-end"
+        style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+      >
+        <div>
+          <label htmlFor="insight-title">New insight</label>
+          <input
+            id="insight-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="気づいたこと"
+            disabled={!canWrite}
+          />
+        </div>
+        <div>
+          <label htmlFor="insight-category">Category</label>
+          <select
+            id="insight-category"
+            value={category}
+            onChange={(event) => setCategory(event.target.value as OsInsight["category"])}
+            disabled={!canWrite}
+            className="h-12 rounded-lg px-3 text-sm w-full"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <option value="memory">Memory</option>
+            <option value="cost">Cost</option>
+            <option value="workflow">Workflow</option>
+            <option value="opportunity">Opportunity</option>
+            <option value="risk">Risk</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="insight-priority">Priority</label>
+          <select
+            id="insight-priority"
+            value={priority}
+            onChange={(event) => setPriority(event.target.value as OsInsight["priority"])}
+            disabled={!canWrite}
+            className="h-12 rounded-lg px-3 text-sm w-full"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="btn-primary h-12 justify-center"
+          disabled={!canWrite || formStatus === "saving"}
+        >
+          {formStatus === "saving" ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Plus size={16} />
+          )}
+          Add
+        </button>
+        <div className="lg:col-span-4">
+          <label htmlFor="insight-recommendation">Recommendation</label>
+          <textarea
+            id="insight-recommendation"
+            rows={2}
+            value={recommendation}
+            onChange={(event) => setRecommendation(event.target.value)}
+            placeholder="推奨アクション"
+            disabled={!canWrite}
+          />
+        </div>
+      </form>
+
+      {!canWrite && <ReadOnlyNotice />}
+      {formMessage && (
+        <p className="text-sm" style={{ color: "#f85149" }}>
+          {formMessage}
+        </p>
+      )}
+
       <div className="space-y-4">
         {data.insights.map((insight) => (
-          <article key={insight.id} className="card p-5">
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <StatusBadge label={insight.priority} tone={insight.priority} />
-                  <StatusBadge label={insight.category} tone="neutral" />
-                  <StatusBadge label={insight.status} tone="neutral" />
-                </div>
-                <h3 className="text-lg font-semibold">{insight.title}</h3>
-                <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  {insight.rationale}
-                </p>
-                <p className="text-sm mt-3 leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {insight.recommendation}
-                </p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button type="button" className="btn-secondary text-sm py-2 px-3">
-                  Approve
-                </button>
-                <button type="button" className="btn-secondary text-sm py-2 px-3">
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </article>
+          <InsightCard
+            key={insight.id}
+            insight={insight}
+            canWrite={canWrite}
+            client={client}
+            onRefresh={onRefresh}
+          />
         ))}
       </div>
     </div>
+  );
+}
+
+function InsightCard({
+  insight,
+  canWrite,
+  client,
+  onRefresh,
+}: {
+  insight: OsInsight;
+  canWrite: boolean;
+  client: SupabaseClient | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const setInsightStatus = async (status: OsInsight["status"]) => {
+    if (!client) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateInsightStatus(client, insight.id, status);
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="card p-5">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <StatusBadge label={insight.priority} tone={insight.priority} />
+            <StatusBadge label={insight.category} tone="neutral" />
+            <StatusBadge label={insight.status} tone="neutral" />
+          </div>
+          <h3 className="text-lg font-semibold">{insight.title}</h3>
+          <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            {insight.rationale}
+          </p>
+          <p className="text-sm mt-3 leading-relaxed" style={{ color: "var(--text-primary)" }}>
+            {insight.recommendation}
+          </p>
+        </div>
+        {insight.status === "open" && (
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setInsightStatus("approved")}
+              className="btn-secondary text-sm py-2 px-3"
+              disabled={!canWrite || busy}
+            >
+              承認
+            </button>
+            <button
+              type="button"
+              onClick={() => setInsightStatus("dismissed")}
+              className="btn-secondary text-sm py-2 px-3"
+              disabled={!canWrite || busy}
+            >
+              却下
+            </button>
+            <button
+              type="button"
+              onClick={() => setInsightStatus("done")}
+              className="btn-secondary text-sm py-2 px-3"
+              disabled={!canWrite || busy}
+            >
+              完了
+            </button>
+          </div>
+        )}
+      </div>
+      {error && (
+        <p className="text-xs mt-2" style={{ color: "#f85149" }}>
+          {error}
+        </p>
+      )}
+    </article>
   );
 }
 
@@ -1525,7 +2398,46 @@ function MetricCard({
   );
 }
 
-function ProjectCard({ project }: { project: OsProject }) {
+function ProjectCard({
+  project,
+  canWrite,
+  client,
+  onRefresh,
+}: {
+  project: OsProject;
+  canWrite: boolean;
+  client: SupabaseClient | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [prevNextAction, setPrevNextAction] = useState(project.next_action ?? "");
+  const [nextActionDraft, setNextActionDraft] = useState(project.next_action ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  // ponytail: React's "adjust state during render" pattern (not an effect) to
+  // resync the draft when the project prop changes without triggering the
+  // set-state-in-effect lint rule.
+  if (prevNextAction !== (project.next_action ?? "")) {
+    setPrevNextAction(project.next_action ?? "");
+    setNextActionDraft(project.next_action ?? "");
+  }
+
+  const applyPatch = async (
+    patch: Partial<Pick<OsProject, "status" | "priority" | "next_action">>,
+  ) => {
+    if (!client) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateProject(client, project.id, patch);
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <article className="card p-5">
       <div className="flex items-start justify-between gap-4 mb-4">
@@ -1535,38 +2447,125 @@ function ProjectCard({ project }: { project: OsProject }) {
             {project.domain} / {formatDate(project.updated_at)}
           </p>
         </div>
-        <StatusBadge label={project.priority} tone={project.priority} />
+        <select
+          value={project.priority}
+          onChange={(event) =>
+            applyPatch({ priority: event.target.value as OsProject["priority"] })
+          }
+          disabled={!canWrite || busy}
+          className="h-8 rounded-lg px-2 text-xs"
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            color: "var(--text-primary)",
+          }}
+        >
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
       </div>
       <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
         {project.description}
       </p>
-      <div
-        className="rounded-lg p-3 text-sm"
+
+      <select
+        value={project.status}
+        onChange={(event) =>
+          applyPatch({ status: event.target.value as OsProject["status"] })
+        }
+        disabled={!canWrite || busy}
+        className="h-9 rounded-lg px-2 text-sm w-full mb-3"
         style={{
-          background: "rgba(88, 166, 255, 0.08)",
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
           color: "var(--text-primary)",
         }}
       >
-        <Clock3 size={14} className="inline mr-2" />
-        {project.next_action ?? "次の行動は未設定"}
+        <option value="active">Active</option>
+        <option value="waiting">Waiting</option>
+        <option value="paused">Paused</option>
+        <option value="completed">Completed</option>
+      </select>
+
+      <div className="flex items-center gap-2 mb-3">
+        <Clock3 size={16} style={{ color: "var(--text-secondary)" }} className="shrink-0" />
+        <input
+          value={nextActionDraft}
+          onChange={(event) => setNextActionDraft(event.target.value)}
+          disabled={!canWrite || busy}
+          placeholder="次の行動"
+        />
+        <button
+          type="button"
+          onClick={() => applyPatch({ next_action: nextActionDraft })}
+          className="btn-secondary text-sm py-2 px-3 shrink-0"
+          disabled={!canWrite || busy}
+        >
+          保存
+        </button>
       </div>
+
+      <button
+        type="button"
+        onClick={() => applyPatch({ status: "completed" })}
+        className="btn-secondary text-sm py-2 px-3 w-full justify-center"
+        disabled={!canWrite || busy || project.status === "completed"}
+      >
+        {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+        完了
+      </button>
+
+      {error && (
+        <p className="text-xs mt-2" style={{ color: "#f85149" }}>
+          {error}
+        </p>
+      )}
     </article>
   );
 }
 
 function MemoryCard({
+  id,
   title,
   path,
   summary,
   tags,
   strength,
+  canDelete,
+  canWrite,
+  client,
+  onRefresh,
 }: {
+  id?: string;
   title: string;
   path: string;
   summary: string;
   tags: string[];
   strength: number;
+  canDelete?: boolean;
+  canWrite?: boolean;
+  client?: SupabaseClient | null;
+  onRefresh?: () => Promise<void>;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const remove = async () => {
+    if (!client || !id || !onRefresh) return;
+    if (!window.confirm(`「${title}」を削除しますか？`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteMemoryItem(client, id);
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "削除に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <article className="card p-5">
       <div className="flex items-start justify-between gap-4 mb-4">
@@ -1588,13 +2587,30 @@ function MemoryCard({
       <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
         {summary}
       </p>
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <span key={tag} className="skill-badge text-xs">
-            {tag}
-          </span>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <span key={tag} className="skill-badge text-xs">
+              {tag}
+            </span>
+          ))}
+        </div>
+        {canDelete && (
+          <button
+            type="button"
+            onClick={remove}
+            className="btn-secondary text-xs py-1.5 px-2.5"
+            disabled={!canWrite || busy}
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          </button>
+        )}
       </div>
+      {error && (
+        <p className="text-xs mt-2" style={{ color: "#f85149" }}>
+          {error}
+        </p>
+      )}
     </article>
   );
 }
@@ -1667,18 +2683,6 @@ function ConnectionPill({
       <span style={{ color: ok ? "var(--accent-green)" : "#d29922" }}>{detail}</span>
     </div>
   );
-}
-
-function ToolStatusBadge({ status }: { status: OsTool["status"] }) {
-  const tone =
-    status === "connected"
-      ? "low"
-      : status === "offline"
-      ? "high"
-      : status === "planned"
-      ? "medium"
-      : "neutral";
-  return <StatusBadge label={status} tone={tone} />;
 }
 
 function StatusBadge({

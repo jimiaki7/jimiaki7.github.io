@@ -105,3 +105,56 @@ Vault へは書き込まず、リポジトリに staged する。導入先の推
 - MulmoScript の自動生成・動画の自動実行（Phase 5 の builder/judge ループに接続する将来課題）。
 - Supabase リモートプロジェクトへの migration 適用（適用は Jimi 承認後に supabase-project-ops で実施）。
 - Vault への .base 直接書込。
+
+---
+
+# v0.2: 機能化イテレーション（2026-07-08 Jimiフィードバック対応）
+
+フィードバック:「マジックリンクではなくパスワードを設定させたい」「OSの中身が全く機能的でない」。
+v0.1 は表示専用（書込は createProject のみ）だった。v0.2 はすべての主要モジュールに CRUD と実データ導線を入れる。
+
+## A. データ層契約（app/os/_lib/os-data.ts に追加。シグネチャ厳守）
+
+```ts
+updateProject(client, id: string, patch: Partial<Pick<OsProject,"name"|"domain"|"status"|"priority"|"description"|"next_action"|"due_date">>): Promise<void>
+createTool(client, ownerId: string, tool: Pick<OsTool,"name"|"category"|"status"|"provider"|"launch_url"|"notes">): Promise<void>
+updateTool(client, id: string, patch: Partial<Pick<OsTool,"name"|"category"|"status"|"provider"|"launch_url"|"notes"|"last_checked_at">>): Promise<void>
+createInsight(client, ownerId: string, insight: Pick<OsInsight,"title"|"category"|"priority"|"rationale"|"recommendation">): Promise<void>
+updateInsightStatus(client, id: string, status: OsInsight["status"]): Promise<void>
+updateApprovalStatus(client, id: string, status: "approved"|"rejected", note?: string): Promise<void> // decided_at=now も設定
+createMemoryItem(client, ownerId: string, item: Pick<OsMemoryItem,"title"|"source_type"|"source_path"|"summary"|"tags">): Promise<void>
+deleteMemoryItem(client, id: string): Promise<void>
+upsertVaultMemories(client, ownerId: string, rows: VaultDbRow[]): Promise<number> // source_path で重複スキップ、挿入件数を返す
+seedInitialData(client, ownerId: string): Promise<void> // 各テーブルが空のときだけ現実の初期データを投入
+```
+
+- エラーは throw（呼び出し側が表示）。全 insert に owner_id を付ける（RLS の with check と一致）。
+- seedInitialData の実データ: プロジェクト=説教準備フロー/Keryx/Semeron/Synaxis/Aster Support Navi/Agentic OS 自身、
+  ツール=Claude Code/Codex/JimiVault Bridge/MulmoClaude/Obsidian Bases/Supabase/Vercel/GitHub、
+  インサイト=seed.ts の2件を流用。`updated_at` 等は DB 側 default に任せる。
+
+## B. 設定画面（OsSettingsApp.tsx）
+
+- 「アカウント」カード追加: 新パスワード+確認入力 → `client.auth.updateUser({ password })`。
+  8文字未満は送信前に弾く。成功/失敗メッセージ表示。以後は /os のパスワード欄でログイン可能になる旨を表示。
+
+## C. OsApp.tsx の機能化（契約Aの関数を使う）
+
+- **MissionControl**: activeプロジェクトの next_action 一覧に「完了」ボタン（status=completed）。
+  全テーブル空のとき「初期データを投入」ボタン（seedInitialData→refreshData）。pending承認・openインサイト数はビュー遷移リンク。
+- **ProjectHub**: 各カードに status/priority のインライン select、next_action の編集、完了ボタン。既存の新規作成は維持。
+- **ToolRegistry**: ツール追加フォーム。各ツールに status select。Bridge/MulmoClaude 系ツールには「ヘルスチェック」
+  ボタン（checkBridgeHealth/checkMulmoHealth の結果で status を connected/offline に更新し last_checked_at=now）。
+  launch_url があれば「開く」リンク。
+- **DreamInbox**: open なインサイトに 承認/却下/完了 ボタン。手動インサイト追加フォーム。
+- **承認キュー**: pending の approval_requests に 承認/却下 ボタン（MissionControl 内の承認カードに配置）。
+- **MemoryGalaxy**: 手動メモリー追加フォーム（title/summary/tags カンマ区切り）、manual 項目の削除ボタン、
+  「Vaultから同期」ボタン（Bridge db/query 最新50件 → upsertVaultMemories → 挿入件数を表示 → refreshData）。
+- seed フォールバック表示（source: "seed"）のときは書込ボタンを無効化し「Supabase未接続」を明示。
+- 文体・スタイルは既存踏襲。static export 安全維持。lint+build 合格。
+
+## 検証（E2E・実運転）
+
+テストユーザーを admin API で作成し、ローカル dev（NEXT_PUBLIC_OS_OWNER_EMAIL=テストユーザー）で
+パスワードログイン → 初期データ投入 → 各CRUD → Vault同期 → パスワード変更 を実ブラウザで通す。
+検証後テストユーザーは削除（cascade で行も消える）。Jimi の本番データには触れない。
