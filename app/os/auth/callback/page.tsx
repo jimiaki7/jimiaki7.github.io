@@ -71,7 +71,7 @@ export default function OsAuthCallbackPage() {
               state === "ready"
                 ? "var(--accent-green)"
                 : state === "error"
-                ? "#f85149"
+                ? "var(--danger)"
                 : "var(--accent)",
           }}
         />

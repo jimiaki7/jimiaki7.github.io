@@ -25,3 +25,28 @@ export function formatUsd(value?: number | null) {
 export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
+
+export function toErrorMessage(
+  error: unknown,
+  fallback = "予期しないエラーが発生しました。",
+): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string" &&
+    (error as { message: string }).message
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  if (typeof error === "string" && error) {
+    return error;
+  }
+
+  return fallback;
+}

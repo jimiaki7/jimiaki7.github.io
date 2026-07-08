@@ -1,14 +1,74 @@
 @import "tailwindcss";
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 :root {
   --bg-primary: #fbfbfa;
   --bg-secondary: #f2f4f3;
   --bg-card: #ffffff;
+  --bg-elevated: #0d1b2a;
+  --text-on-elevated: #f5f6f7;
   --text-primary: #0d1b2a;
   --text-secondary: #53606f;
-  --accent: #b7791f;
-  --accent-green: #16784a;
+  --text-muted: #6b7785;
   --border: #dde2e4;
+  --border-strong: #c3cbd0;
+  --accent: #b7791f;
+  --accent-fg: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --success: #16784a;
+  --warning: #8a5a00;
+  --danger: #b42318;
+  --info: #1f6feb;
+  --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
+  --warning-soft: color-mix(in srgb, var(--warning) 10%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, transparent);
+  --info-soft: color-mix(in srgb, var(--info) 10%, transparent);
+  --shadow-color: rgba(13, 27, 42, 0.35);
+  --overlay: rgba(13, 27, 42, 0.5);
+  --focus-ring: var(--accent);
+  /* ライトの主ボタンは公開サイトのブランド（紺地に白文字 = 15.9:1）を維持する。
+     accent(#b7791f) 地に白文字は 3.66:1 で WCAG AA 不合格なので使わない。 */
+  --btn-primary-bg: var(--text-primary);
+  --btn-primary-fg: #ffffff;
+  color-scheme: light;
+
+  /* 後方互換エイリアス（削除禁止） */
+  --accent-green: var(--success);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0f1113;
+  --bg-secondary: #171a1e;
+  --bg-card: #1b1f24;
+  --bg-elevated: #22262c;
+  --text-on-elevated: #e8eaed;
+  --text-primary: #e8eaed;
+  --text-secondary: #a7b0ba;
+  --text-muted: #8b949e;
+  --border: #2b3138;
+  --border-strong: #3c444d;
+  --accent: #d9a441;
+  --accent-fg: #1a1205;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --success: #3fb27f;
+  --warning: #e3b341;
+  /* #f85149 は danger-soft 地の StatusBadge で 4.43:1 となり AA(4.5:1) を割ったため 1段明るく。 */
+  --danger: #ff7b72;
+  --info: #58a6ff;
+  --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
+  --warning-soft: color-mix(in srgb, var(--warning) 10%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, transparent);
+  --info-soft: color-mix(in srgb, var(--info) 10%, transparent);
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --overlay: rgba(0, 0, 0, 0.65);
+  --focus-ring: var(--accent);
+  /* ダークでは紺地ボタンが背景に沈むため accent 地に濃文字（8.3:1）に切り替える。 */
+  --btn-primary-bg: var(--accent);
+  --btn-primary-fg: var(--accent-fg);
+  color-scheme: dark;
+
+  /* 後方互換エイリアス（削除禁止） */
+  --accent-green: var(--success);
 }
 
 @theme inline {
@@ -47,14 +107,27 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  box-shadow: 0 18px 45px -38px rgba(13, 27, 42, 0.35);
+  box-shadow: 0 18px 45px -38px var(--shadow-color);
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .card:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 22px 48px -34px rgba(13, 27, 42, 0.45);
+  box-shadow: 0 22px 48px -34px var(--shadow-color);
+}
+
+/* OS用カード: 公開サイトの .card と違い hover lift なし（border-color のみ変化） */
+.os-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 18px 45px -38px var(--shadow-color);
+  transition: border-color 0.2s;
+}
+
+.os-card:hover {
+  border-color: var(--accent);
 }
 
 .btn-primary {
@@ -62,8 +135,8 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1.5rem;
-  background: var(--text-primary);
-  color: #ffffff;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
   font-weight: 600;
   border-radius: 0.5rem;
   white-space: nowrap;
@@ -81,7 +154,7 @@ body {
   padding: 0.625rem 1.5rem;
   border: 1px solid var(--border);
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--bg-card);
   font-weight: 600;
   border-radius: 0.5rem;
   white-space: nowrap;
@@ -90,7 +163,7 @@ body {
 
 .btn-secondary:hover {
   border-color: var(--accent);
-  background: rgba(183, 121, 31, 0.08);
+  background: var(--accent-soft);
 }
 
 .skill-badge {
@@ -144,4 +217,17 @@ label {
   color: var(--text-secondary);
   display: block;
   margin-bottom: 0.375rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    transform: none !important;
+  }
 }

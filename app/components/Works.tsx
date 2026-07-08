@@ -172,7 +172,7 @@ export default function Works() {
                   style={{
                     color: p.statusColor,
                     border: `1px solid ${p.statusColor}`,
-                    background: `${p.statusColor}18`,
+                    background: `color-mix(in srgb, ${p.statusColor} 10%, transparent)`,
                   }}
                 >
                   {p.status}

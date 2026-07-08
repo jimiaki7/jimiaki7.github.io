@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { DEFAULT_BRIDGE_URL } from "./config";
 
 export type BridgeSettings = {
@@ -54,6 +55,46 @@ export type MulmoHealth = {
   error?: string;
 };
 
+// Bridgeはローカルプロセスとはいえ信頼境界の外。4つのfetch応答をzodで検証する。
+const bridgeHealthSchema = z.object({
+  ok: z.boolean(),
+  name: z.string().optional(),
+  vaultRoot: z.string().optional(),
+  readOnly: z.boolean().optional(),
+  excludedPatterns: z.array(z.string()).optional(),
+  error: z.string().optional(),
+});
+
+const vaultSearchResultSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  excerpt: z.string(),
+  modifiedAt: z.string().optional(),
+});
+
+const vaultSearchResponseSchema = z.object({
+  results: z.array(vaultSearchResultSchema).optional(),
+});
+
+const vaultDbRowSchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  modifiedAt: z.string().optional(),
+  properties: z.record(z.string(), z.unknown()),
+});
+
+const vaultDbResponseSchema = z.object({
+  rows: z.array(vaultDbRowSchema).optional(),
+  total: z.number().optional(),
+});
+
+const mulmoHealthSchema = z.object({
+  ok: z.boolean(),
+  url: z.string().optional(),
+  status: z.number().optional(),
+  error: z.string().optional(),
+});
+
 const urlKey = "jimi-os.bridge.url";
 const tokenKey = "jimi-os.bridge.token";
 
@@ -92,8 +133,12 @@ export async function checkBridgeHealth(
       return { ok: false, error: `Bridge returned ${response.status}.` };
     }
 
-    const body = (await response.json()) as BridgeHealth;
-    return { ...body, ok: Boolean(body.ok) };
+    const parsed = bridgeHealthSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return { ok: false, error: "Bridge returned a malformed response." };
+    }
+
+    return { ...parsed.data, ok: Boolean(parsed.data.ok) };
   } catch (error) {
     return {
       ok: false,
@@ -119,8 +164,12 @@ export async function searchVault(
     throw new Error(`Bridge search failed with ${response.status}.`);
   }
 
-  const body = (await response.json()) as { results?: VaultSearchResult[] };
-  return body.results ?? [];
+  const parsed = vaultSearchResponseSchema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new Error("Bridge search response was malformed.");
+  }
+
+  return parsed.data.results ?? [];
 }
 
 export async function queryVaultDb(
@@ -140,8 +189,12 @@ export async function queryVaultDb(
     throw new Error(`Bridge db query failed with ${response.status}.`);
   }
 
-  const body = (await response.json()) as Partial<VaultDbResult>;
-  return { rows: body.rows ?? [], total: body.total ?? 0 };
+  const parsed = vaultDbResponseSchema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new Error("Bridge db query response was malformed.");
+  }
+
+  return { rows: parsed.data.rows ?? [], total: parsed.data.total ?? 0 };
 }
 
 export async function checkMulmoHealth(
@@ -163,8 +216,12 @@ export async function checkMulmoHealth(
       return { ok: false, error: `Bridge returned ${response.status}.` };
     }
 
-    const body = (await response.json()) as MulmoHealth;
-    return { ...body, ok: Boolean(body.ok) };
+    const parsed = mulmoHealthSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return { ok: false, error: "Bridge returned a malformed response." };
+    }
+
+    return { ...parsed.data, ok: Boolean(parsed.data.ok) };
   } catch (error) {
     return {
       ok: false,

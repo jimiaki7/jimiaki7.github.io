@@ -1,5 +1,6 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { VaultDbRow } from "./bridge";
+import { toErrorMessage } from "./format";
 import {
   agentRunSchema,
   approvalRequestSchema,
@@ -14,7 +15,14 @@ import {
   projectSchema,
   toolSchema,
 } from "./schemas";
-import { createSeedData, seedInsights } from "./seed";
+import { seedInsights } from "./seed";
+
+// 12箇所の `if (error) throw new Error(error.message)` 重複の集約先。
+function mustSucceed({ error }: { error: PostgrestError | null }): void {
+  if (error) {
+    throw new Error(toErrorMessage(error));
+  }
+}
 
 type TableName =
   | "projects"
@@ -76,14 +84,19 @@ function parseRows<T>(
   label: string,
 ) {
   const parsed: T[] = [];
+  let invalidCount = 0;
 
   for (const row of rows) {
     const result = parser.safeParse(row);
     if (result.success) {
       parsed.push(result.data);
     } else {
-      diagnostics.push(`${label}: skipped an invalid row`);
+      invalidCount += 1;
     }
+  }
+
+  if (invalidCount > 0) {
+    diagnostics.push(`${label}: skipped ${invalidCount} invalid row(s)`);
   }
 
   return parsed;
@@ -109,10 +122,10 @@ export async function loadOsData(client: SupabaseClient): Promise<OsData> {
     readTable(client, "cost_events", diagnostics),
   ]);
 
-  if (diagnostics.length > 0) {
-    return createSeedData(diagnostics);
-  }
-
+  // ponytail: no fallback to seed data here. Supabase接続時は決してシードに
+  // 落ちない。読み込みに失敗したテーブルは readTable が空配列を返し
+  // diagnostics に理由を積んでいるので、そのまま実データとして返す。
+  // createSeedData は hasSupabaseConfig()===false の呼び出し側（OsApp）専用。
   return {
     projects: parseRows(projects, projectSchema, diagnostics, "projects"),
     tools: parseRows(tools, toolSchema, diagnostics, "tools"),
@@ -146,19 +159,17 @@ export async function createProject(
   ownerId: string,
   project: Pick<OsProject, "name" | "domain" | "priority" | "description">,
 ) {
-  const { error } = await client.from("projects").insert({
-    owner_id: ownerId,
-    name: project.name,
-    domain: project.domain,
-    priority: project.priority,
-    status: "active",
-    description: project.description,
-    next_action: "次の具体アクションを設定する。",
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(
+    await client.from("projects").insert({
+      owner_id: ownerId,
+      name: project.name,
+      domain: project.domain,
+      priority: project.priority,
+      status: "active",
+      description: project.description,
+      next_action: "次の具体アクションを設定する。",
+    }),
+  );
 }
 
 export async function updateProject(
@@ -177,11 +188,7 @@ export async function updateProject(
     >
   >,
 ): Promise<void> {
-  const { error } = await client.from("projects").update(patch).eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(await client.from("projects").update(patch).eq("id", id));
 }
 
 export async function createTool(
@@ -192,13 +199,9 @@ export async function createTool(
     "name" | "category" | "status" | "provider" | "launch_url" | "notes"
   >,
 ): Promise<void> {
-  const { error } = await client
-    .from("tools")
-    .insert({ owner_id: ownerId, ...tool });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(
+    await client.from("tools").insert({ owner_id: ownerId, ...tool }),
+  );
 }
 
 export async function updateTool(
@@ -217,11 +220,7 @@ export async function updateTool(
     >
   >,
 ): Promise<void> {
-  const { error } = await client.from("tools").update(patch).eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(await client.from("tools").update(patch).eq("id", id));
 }
 
 export async function createInsight(
@@ -232,13 +231,9 @@ export async function createInsight(
     "title" | "category" | "priority" | "rationale" | "recommendation"
   >,
 ): Promise<void> {
-  const { error } = await client
-    .from("insights")
-    .insert({ owner_id: ownerId, ...insight });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(
+    await client.from("insights").insert({ owner_id: ownerId, ...insight }),
+  );
 }
 
 export async function updateInsightStatus(
@@ -246,14 +241,9 @@ export async function updateInsightStatus(
   id: string,
   status: OsInsight["status"],
 ): Promise<void> {
-  const { error } = await client
-    .from("insights")
-    .update({ status })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(
+    await client.from("insights").update({ status }).eq("id", id),
+  );
 }
 
 export async function updateApprovalStatus(
@@ -262,18 +252,16 @@ export async function updateApprovalStatus(
   status: "approved" | "rejected",
   note?: string,
 ): Promise<void> {
-  const { error } = await client
-    .from("approval_requests")
-    .update({
-      status,
-      decision_note: note ?? null,
-      decided_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(
+    await client
+      .from("approval_requests")
+      .update({
+        status,
+        decision_note: note ?? null,
+        decided_at: new Date().toISOString(),
+      })
+      .eq("id", id),
+  );
 }
 
 export async function createMemoryItem(
@@ -284,24 +272,16 @@ export async function createMemoryItem(
     "title" | "source_type" | "source_path" | "summary" | "tags"
   >,
 ): Promise<void> {
-  const { error } = await client
-    .from("memory_items")
-    .insert({ owner_id: ownerId, ...item });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(
+    await client.from("memory_items").insert({ owner_id: ownerId, ...item }),
+  );
 }
 
 export async function deleteMemoryItem(
   client: SupabaseClient,
   id: string,
 ): Promise<void> {
-  const { error } = await client.from("memory_items").delete().eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(await client.from("memory_items").delete().eq("id", id));
 }
 
 // ponytail: frontmatter values follow Jimi's convention of single-element
@@ -326,31 +306,16 @@ export async function upsertVaultMemories(
   ownerId: string,
   rows: VaultDbRow[],
 ): Promise<number> {
-  const { data: existing, error: selectError } = await client
-    .from("memory_items")
-    .select("source_path")
-    .eq("source_type", "vault");
-
-  if (selectError) {
-    throw new Error(selectError.message);
-  }
-
-  const existingPaths = new Set<string>();
-  for (const row of (existing ?? []) as unknown[]) {
-    const sourcePath = (row as { source_path?: unknown }).source_path;
-    if (typeof sourcePath === "string") {
-      existingPaths.add(sourcePath);
-    }
-  }
-
-  const newRows = rows.filter((row) => !existingPaths.has(row.path));
-
-  if (newRows.length === 0) {
+  if (rows.length === 0) {
     return 0;
   }
 
-  const { error: insertError } = await client.from("memory_items").insert(
-    newRows.map((row) => ({
+  // ponytail: let the DB's own unique index decide duplicates (rung 4 —
+  // native constraint over app-side select+filter). Requires the NON-partial
+  // unique index from 202607080002_vault_memory_unique_fix.sql: a partial index
+  // cannot be inferred by ON CONFLICT (owner_id, source_path).
+  const result = await client.from("memory_items").upsert(
+    rows.map((row) => ({
       owner_id: ownerId,
       title: firstVaultString(row.properties.title) ?? row.name,
       source_type: "vault" as const,
@@ -359,28 +324,25 @@ export async function upsertVaultMemories(
       tags: normalizeVaultTags(row.properties.tags),
       strength: 60, // ponytail: fixed default, replace with recency/relevance scoring if it matters later
     })),
+    { onConflict: "owner_id,source_path", ignoreDuplicates: true, count: "exact" },
   );
 
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
+  mustSucceed(result);
 
-  return newRows.length;
+  return result.count ?? 0;
 }
 
 async function isTableEmpty(
   client: SupabaseClient,
   table: "projects" | "tools" | "insights",
 ): Promise<boolean> {
-  const { count, error } = await client
+  const result = await client
     .from(table)
     .select("id", { count: "exact", head: true });
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  mustSucceed(result);
 
-  return (count ?? 0) === 0;
+  return (result.count ?? 0) === 0;
 }
 
 const initialProjects: Array<
@@ -518,42 +480,36 @@ export async function seedInitialData(
   ownerId: string,
 ): Promise<void> {
   if (await isTableEmpty(client, "projects")) {
-    const { error } = await client
-      .from("projects")
-      .insert(
-        initialProjects.map((project) => ({ owner_id: ownerId, ...project })),
-      );
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    mustSucceed(
+      await client
+        .from("projects")
+        .insert(
+          initialProjects.map((project) => ({ owner_id: ownerId, ...project })),
+        ),
+    );
   }
 
   if (await isTableEmpty(client, "tools")) {
-    const { error } = await client
-      .from("tools")
-      .insert(initialTools.map((tool) => ({ owner_id: ownerId, ...tool })));
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    mustSucceed(
+      await client
+        .from("tools")
+        .insert(initialTools.map((tool) => ({ owner_id: ownerId, ...tool }))),
+    );
   }
 
   if (await isTableEmpty(client, "insights")) {
-    const { error } = await client.from("insights").insert(
-      seedInsights.map((insight) => ({
-        owner_id: ownerId,
-        title: insight.title,
-        category: insight.category,
-        priority: insight.priority,
-        status: insight.status,
-        rationale: insight.rationale,
-        recommendation: insight.recommendation,
-      })),
+    mustSucceed(
+      await client.from("insights").insert(
+        seedInsights.map((insight) => ({
+          owner_id: ownerId,
+          title: insight.title,
+          category: insight.category,
+          priority: insight.priority,
+          status: insight.status,
+          rationale: insight.rationale,
+          recommendation: insight.recommendation,
+        })),
+      ),
     );
-
-    if (error) {
-      throw new Error(error.message);
-    }
   }
 }

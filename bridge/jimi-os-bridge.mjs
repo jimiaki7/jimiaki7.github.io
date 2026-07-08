@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { readdir, readFile, stat } from "node:fs/promises";
 
 const defaultVaultRoot = path.join(
@@ -48,13 +49,13 @@ const excludedFragments = [
   ".git",
 ];
 
-function isAllowedOrigin(origin) {
+export function isAllowedOrigin(origin) {
   if (!origin) return true;
   if (config.allowedOrigins.has(origin)) return true;
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
-function corsHeaders(origin) {
+export function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": isAllowedOrigin(origin)
       ? origin || "http://127.0.0.1"
@@ -91,7 +92,7 @@ async function readBody(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function isExcluded(relativePath) {
+export function isExcluded(relativePath) {
   // ponytail: macOS/iCloud filenames are often NFD (e.g. "デ" decomposes to base+dakuten),
   // while source string literals are NFC — normalize both sides or dakuten/handakuten
   // filenames (like 重要データ.md itself) silently skip the exclusion filter.
@@ -101,7 +102,7 @@ function isExcluded(relativePath) {
   );
 }
 
-function safeResolve(relativePath) {
+export function safeResolve(relativePath) {
   const target = path.resolve(config.vaultRoot, relativePath || ".");
   if (!target.startsWith(config.vaultRoot)) {
     throw new Error("Path escapes the configured Vault root.");
@@ -132,13 +133,13 @@ async function collectMarkdownFiles(directory, output = []) {
   return output;
 }
 
-function titleFromContent(filePath, content) {
+export function titleFromContent(filePath, content) {
   const heading = content.match(/^#\s+(.+)$/m);
   if (heading?.[1]) return heading[1].trim();
   return path.basename(filePath, ".md");
 }
 
-function excerptFor(content, query) {
+export function excerptFor(content, query) {
   const plain = content
     .replace(/^---[\s\S]*?---/m, "")
     .replace(/\s+/g, " ")
@@ -207,7 +208,7 @@ async function syncVault(body) {
   return { items };
 }
 
-function unquoteScalar(value) {
+export function unquoteScalar(value) {
   const trimmed = value.trim();
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) ||
@@ -218,14 +219,14 @@ function unquoteScalar(value) {
   return trimmed;
 }
 
-function parseInlineArray(value) {
+export function parseInlineArray(value) {
   const inner = value.trim().replace(/^\[/, "").replace(/\]$/, "");
   if (!inner.trim()) return [];
   return inner.split(",").map((item) => unquoteScalar(item));
 }
 
 // ponytail: full YAML非対応（スカラー/リストのみ）、必要になったらjs-yaml
-function parseFrontmatter(content) {
+export function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return {};
 
@@ -267,7 +268,7 @@ function parseFrontmatter(content) {
   return properties;
 }
 
-function matchesWhereClause(row, clause) {
+export function matchesWhereClause(row, clause) {
   const { field, op, value } = clause || {};
   const actual =
     field === "modifiedAt" || field === "name" ? row[field] : row.properties[field];
@@ -294,7 +295,7 @@ function matchesWhereClause(row, clause) {
   return false;
 }
 
-function sortValueFor(row, field) {
+export function sortValueFor(row, field) {
   const value = field === "modifiedAt" || field === "name" ? row[field] : row.properties[field];
   if (Array.isArray(value)) return value.join(",");
   return value === undefined || value === null ? "" : String(value);
@@ -509,9 +510,16 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(config.port, config.host, () => {
-  console.log(`Jimi OS Bridge listening on http://${config.host}:${config.port}`);
-  console.log(`Vault root: ${config.vaultRoot}`);
-  console.log(`Bridge token: ${config.token}`);
-  console.log("Paste the token into /os/settings. Keep it local.");
-});
+// ponytail: guard so `import` from tests/other modules never binds a port —
+// only direct CLI execution (`node bridge/jimi-os-bridge.mjs`) starts the server.
+const isMainModule =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isMainModule) {
+  server.listen(config.port, config.host, () => {
+    console.log(`Jimi OS Bridge listening on http://${config.host}:${config.port}`);
+    console.log(`Vault root: ${config.vaultRoot}`);
+    console.log(`Bridge token: ${config.token}`);
+    console.log("Paste the token into /os/settings. Keep it local.");
+  });
+}

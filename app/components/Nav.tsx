@@ -1,5 +1,7 @@
 "use client";
 
+import ThemeToggle from "./ThemeToggle";
+
 export default function Nav() {
   const links = [
     { href: "#about", label: "About" },
@@ -11,7 +13,7 @@ export default function Nav() {
   return (
     <nav
       style={{
-        background: "rgba(250, 250, 248, 0.9)",
+        background: "color-mix(in srgb, var(--bg-primary) 90%, transparent)",
         borderBottom: "1px solid var(--border)",
         backdropFilter: "blur(12px)",
       }}
@@ -32,6 +34,7 @@ export default function Nav() {
               </a>
             ))}
           </div>
+          <ThemeToggle />
           <a href="#contact" className="btn-primary text-sm py-1.5 px-4">
             相談する
           </a>

@@ -32,6 +32,8 @@ import {
   type BridgeSettings,
 } from "../_lib/bridge";
 import { getSupabaseBrowserClient } from "../_lib/supabase";
+import { Field } from "./ui/Field";
+import { Notice } from "./ui/Notice";
 
 type AuthState =
   | "checking"
@@ -175,7 +177,7 @@ export default function OsSettingsApp() {
 
         {authState === "setup" && (
           <Panel>
-            <XCircle size={20} style={{ color: "#f85149" }} />
+            <XCircle size={20} style={{ color: "var(--danger)" }} aria-hidden="true" />
             <div>
               <h2 className="font-semibold mb-1">Supabase setup required</h2>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -202,7 +204,7 @@ export default function OsSettingsApp() {
 
         {authState === "unauthorized" && (
           <Panel>
-            <XCircle size={20} style={{ color: "#f85149" }} />
+            <XCircle size={20} style={{ color: "var(--danger)" }} aria-hidden="true" />
             <div>
               <h2 className="font-semibold mb-1">Owner only</h2>
               <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
@@ -227,21 +229,17 @@ export default function OsSettingsApp() {
               </div>
 
               <form onSubmit={submit} className="space-y-4">
-                <div>
-                  <label htmlFor="bridge-url">Bridge URL</label>
+                <Field label="Bridge URL" id="bridge-url">
                   <input
-                    id="bridge-url"
                     value={bridge.url}
                     onChange={(event) =>
                       setBridge((current) => ({ ...current, url: event.target.value }))
                     }
                     placeholder={DEFAULT_BRIDGE_URL}
                   />
-                </div>
-                <div>
-                  <label htmlFor="bridge-token">Bridge token</label>
+                </Field>
+                <Field label="Bridge token" id="bridge-token">
                   <input
-                    id="bridge-token"
                     type="password"
                     value={bridge.token}
                     onChange={(event) =>
@@ -252,13 +250,13 @@ export default function OsSettingsApp() {
                     }
                     placeholder="local bearer token"
                   />
-                </div>
+                </Field>
                 <div className="flex flex-wrap gap-3">
                   <button type="submit" className="btn-primary" disabled={checkingBridge}>
                     {checkingBridge ? (
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2 size={16} className="animate-spin" aria-hidden="true" />
                     ) : (
-                      <Save size={16} />
+                      <Save size={16} aria-hidden="true" />
                     )}
                     {saved ? "Saved" : "Save & test"}
                   </button>
@@ -268,11 +266,20 @@ export default function OsSettingsApp() {
                     disabled={checkingBridge}
                     onClick={() => testBridge()}
                   >
-                    <RefreshCw size={16} />
+                    <RefreshCw size={16} aria-hidden="true" />
                     Test
                   </button>
                 </div>
               </form>
+
+              {/* 保存はボタン文言だけでは読み上げられないため、role="status" で通知する */}
+              {/* ponytail: 失敗時のメッセージは上の Local Bridge StatusCard が
+                  health.error を出す。ここで二重に出さない。 */}
+              {saved && (
+                <div className="mt-4">
+                  <Notice variant="success">Bridge設定を保存しました。</Notice>
+                </div>
+              )}
             </section>
 
             <section
@@ -363,44 +370,38 @@ function AccountCard({ client }: { client: SupabaseClient | null }) {
         <h2 className="text-lg font-semibold">アカウント</h2>
       </div>
       <form onSubmit={submit} className="space-y-4 max-w-sm">
-        <div>
-          <label htmlFor="account-new-password">新しいパスワード</label>
+        <Field label="新しいパスワード" id="account-new-password">
           <input
-            id="account-new-password"
             type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             placeholder="8文字以上"
             disabled={submitting}
           />
-        </div>
-        <div>
-          <label htmlFor="account-confirm-password">確認</label>
+        </Field>
+        <Field label="確認" id="account-confirm-password">
           <input
-            id="account-confirm-password"
             type="password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             placeholder="もう一度入力"
             disabled={submitting}
           />
-        </div>
+        </Field>
         <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
           ) : (
-            <Save size={16} />
+            <Save size={16} aria-hidden="true" />
           )}
           パスワードを設定
         </button>
       </form>
+      {/* Noticeがvariantに応じてrole="alert"/"status"とaria-liveを付ける */}
       {message && (
-        <p
-          className="text-sm mt-4"
-          style={{ color: status === "error" ? "#f85149" : "var(--accent-green)" }}
-        >
-          {message}
-        </p>
+        <div className="mt-4">
+          <Notice variant={status === "error" ? "error" : "success"}>{message}</Notice>
+        </div>
       )}
     </section>
   );
@@ -420,11 +421,12 @@ function StatusCard({
   return (
     <article className="card p-5">
       <div className="flex items-center justify-between mb-4">
-        <Icon size={18} style={{ color: "var(--accent)" }} />
+        <Icon size={18} style={{ color: "var(--accent)" }} aria-hidden="true" />
+        {/* 色だけに依存しないよう、アイコンにも状態テキストを持たせる */}
         {ok ? (
-          <CheckCircle2 size={18} style={{ color: "var(--accent-green)" }} />
+          <CheckCircle2 size={18} style={{ color: "var(--success)" }} aria-label="ok" />
         ) : (
-          <XCircle size={18} style={{ color: "#f85149" }} />
+          <XCircle size={18} style={{ color: "var(--danger)" }} aria-label="not ready" />
         )}
       </div>
       <h2 className="font-semibold">{title}</h2>
